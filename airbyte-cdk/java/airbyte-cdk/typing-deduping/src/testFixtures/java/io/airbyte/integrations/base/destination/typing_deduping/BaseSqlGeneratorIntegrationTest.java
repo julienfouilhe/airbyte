@@ -23,6 +23,7 @@ import io.airbyte.commons.string.Strings;
 import io.airbyte.protocol.models.v0.DestinationSyncMode;
 import io.airbyte.protocol.models.v0.SyncMode;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -738,9 +739,13 @@ public abstract class BaseSqlGeneratorIntegrationTest<DialectTableDefinition> {
   public void incrementalDedup() throws Exception {
     createRawTable(streamId);
     createFinalTable(incrementalDedupStream, "");
-    insertRawTableRecords(
-        streamId,
-        BaseTypingDedupingTest.readRecords("sqlgenerator/incrementaldedup_inputrecords.jsonl"));
+    final List<JsonNode> inputRecords = new ArrayList<>(BaseTypingDedupingTest.readRecords("sqlgenerator/incrementaldedup_inputrecords.jsonl"));
+    if (supportsSafeCast()) {
+      inputRecords.addAll(BaseTypingDedupingTest.readRecords("sqlgenerator/safe_cast/incrementaldedup_inputrecords.jsonl"));
+    } else {
+      inputRecords.addAll(BaseTypingDedupingTest.readRecords("sqlgenerator/safe_cast_unsupported/incrementaldedup_inputrecords.jsonl"));
+    }
+    insertRawTableRecords(streamId, inputRecords);
 
     TypeAndDedupeTransaction.executeTypeAndDedupe(generator, destinationHandler, incrementalDedupStream, Optional.empty(), "");
 
@@ -810,9 +815,13 @@ public abstract class BaseSqlGeneratorIntegrationTest<DialectTableDefinition> {
   public void incrementalAppend() throws Exception {
     createRawTable(streamId);
     createFinalTable(incrementalAppendStream, "");
-    insertRawTableRecords(
-        streamId,
-        BaseTypingDedupingTest.readRecords("sqlgenerator/incrementaldedup_inputrecords.jsonl"));
+    final List<JsonNode> inputRecords = new ArrayList<>(BaseTypingDedupingTest.readRecords("sqlgenerator/incrementaldedup_inputrecords.jsonl"));
+    if (supportsSafeCast()) {
+      inputRecords.addAll(BaseTypingDedupingTest.readRecords("sqlgenerator/safe_cast/incrementaldedup_inputrecords.jsonl"));
+    } else {
+      inputRecords.addAll(BaseTypingDedupingTest.readRecords("sqlgenerator/safe_cast_unsupported/incrementaldedup_inputrecords.jsonl"));
+    }
+    insertRawTableRecords(streamId, inputRecords);
 
     TypeAndDedupeTransaction.executeTypeAndDedupe(generator, destinationHandler, incrementalAppendStream, Optional.empty(), "");
 
@@ -918,9 +927,13 @@ public abstract class BaseSqlGeneratorIntegrationTest<DialectTableDefinition> {
   public void cdcComplexUpdate() throws Exception {
     createRawTable(streamId);
     createFinalTable(cdcIncrementalDedupStream, "");
-    insertRawTableRecords(
-        streamId,
-        BaseTypingDedupingTest.readRecords("sqlgenerator/cdcupdate_inputrecords_raw.jsonl"));
+    final List<JsonNode> inputRecords = new ArrayList<>(BaseTypingDedupingTest.readRecords("sqlgenerator/cdcupdate_inputrecords_raw.jsonl"));
+    if (supportsSafeCast()) {
+      inputRecords.addAll(BaseTypingDedupingTest.readRecords("sqlgenerator/safe_cast/cdcupdate_inputrecords_raw.jsonl"));
+    } else {
+      inputRecords.addAll(BaseTypingDedupingTest.readRecords("sqlgenerator/safe_cast_unsupported/cdcupdate_inputrecords_raw.jsonl"));
+    }
+    insertRawTableRecords(streamId, inputRecords);
     insertFinalTableRecords(
         true,
         streamId,
