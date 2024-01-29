@@ -603,9 +603,11 @@ public abstract class BaseSqlGeneratorIntegrationTest<DialectTableDefinition> {
         AirbyteProtocolType.STRING);
     createRawTable(streamId);
     createFinalTable(incrementalDedupStream, "");
-    insertRawTableRecords(
-        streamId,
-        BaseTypingDedupingTest.readRecords("sqlgenerator/alltypes_inputrecords.jsonl"));
+    final List<JsonNode> inputRecords = new ArrayList<>(BaseTypingDedupingTest.readRecords("sqlgenerator/alltypes_inputrecords.jsonl"));
+    if (supportsSafeCast()) {
+      inputRecords.addAll(BaseTypingDedupingTest.readRecords("sqlgenerator/safe_cast/alltypes_inputrecords.jsonl"));
+    }
+    insertRawTableRecords(streamId, inputRecords);
 
     final DestinationHandler.InitialRawTableState tableState = destinationHandler.getInitialRawTableState(streamId);
     assertAll(
@@ -628,10 +630,6 @@ public abstract class BaseSqlGeneratorIntegrationTest<DialectTableDefinition> {
    */
   @Test
   public void handleNoPreexistingRecords() throws Exception {
-    // Add case-sensitive columnName to test json path querying
-    incrementalDedupStream.columns().put(
-        generator.buildColumnId("IamACaseSensitiveColumnName"),
-        AirbyteProtocolType.STRING);
     createRawTable(streamId);
     final DestinationHandler.InitialRawTableState tableState = destinationHandler.getInitialRawTableState(streamId);
     assertAll(
@@ -639,9 +637,11 @@ public abstract class BaseSqlGeneratorIntegrationTest<DialectTableDefinition> {
         () -> assertEquals(Optional.empty(), tableState.maxProcessedTimestamp(), "With an empty raw table, the min timestamp should be empty"));
 
     createFinalTable(incrementalDedupStream, "");
-    insertRawTableRecords(
-        streamId,
-        BaseTypingDedupingTest.readRecords("sqlgenerator/alltypes_inputrecords.jsonl"));
+    final List<JsonNode> inputRecords = new ArrayList<>(BaseTypingDedupingTest.readRecords("sqlgenerator/alltypes_inputrecords.jsonl"));
+    if (supportsSafeCast()) {
+      inputRecords.addAll(BaseTypingDedupingTest.readRecords("sqlgenerator/safe_cast/alltypes_inputrecords.jsonl"));
+    }
+    insertRawTableRecords(streamId, inputRecords);
 
     TypeAndDedupeTransaction.executeTypeAndDedupe(generator, destinationHandler, incrementalDedupStream, tableState.maxProcessedTimestamp(), "");
 
@@ -1227,14 +1227,13 @@ public abstract class BaseSqlGeneratorIntegrationTest<DialectTableDefinition> {
   public void testV1V2migration() throws Exception {
     // This is maybe a little hacky, but it avoids having to refactor this entire class and subclasses
     // for something that is going away
-    // Add case-sensitive columnName to test json path querying
-    incrementalDedupStream.columns().put(
-        generator.buildColumnId("IamACaseSensitiveColumnName"),
-        AirbyteProtocolType.STRING);
     final StreamId v1RawTableStreamId = new StreamId(null, null, streamId.finalNamespace(), "v1_" + streamId.rawName(), null, null);
     createV1RawTable(v1RawTableStreamId);
-    insertV1RawTableRecords(v1RawTableStreamId, BaseTypingDedupingTest.readRecords(
-        "sqlgenerator/all_types_v1_inputrecords.jsonl"));
+    final List<JsonNode> inputRecords = new ArrayList<>(BaseTypingDedupingTest.readRecords("sqlgenerator/all_types_v1_inputrecords.jsonl"));
+    if (supportsSafeCast()) {
+      inputRecords.addAll(BaseTypingDedupingTest.readRecords("sqlgenerator/safe_cast/all_types_v1_inputrecords.jsonl"));
+    }
+    insertV1RawTableRecords(v1RawTableStreamId, inputRecords);
     final Sql migration = generator.migrateFromV1toV2(streamId, v1RawTableStreamId.rawNamespace(), v1RawTableStreamId.rawName());
     destinationHandler.execute(migration);
     final List<JsonNode> v1RawRecords = dumpV1RawTableRecords(v1RawTableStreamId);
