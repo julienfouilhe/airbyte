@@ -5,6 +5,7 @@
 package io.airbyte.integrations.destination.mysql.typing_deduping;
 
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT;
+import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_LOADED_AT;
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_META;
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_DATA;
 import static org.jooq.impl.DSL.case_;
@@ -51,7 +52,7 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
     super(namingResolver);
   }
 
-  private DataType<?> getJsonType() {
+  private DataType<Object> getJsonType() {
     return JSON_TYPE;
   }
 
@@ -102,20 +103,16 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
         .entrySet()
         .stream()
         .map(column -> {
-          final String jsonExtractFunction;
           final AirbyteType type = column.getValue();
           final boolean isStruct = type instanceof Struct;
           final boolean isArray = type instanceof Array;
-          if (type == AirbyteProtocolType.UNKNOWN || isStruct || isArray) {
-            // UKKNOWN should use json_extract to retain the exact json value
-            jsonExtractFunction = "JSON_EXTRACT";
-          } else {
-            // And primitive types should just use json_value, to (a) strip quotes from strings, and
-            // (b) cast json null to sql null.
-            jsonExtractFunction = "JSON_VALUE";
-          }
 
-          final Field<?> extractedValue = function(jsonExtractFunction, getJsonType(), field(name(COLUMN_NAME_DATA)), jsonPath(column.getKey()));
+          Field<?> extractedValue = extractColumnAsJson(column.getKey());
+          if (!(isStruct || isArray || type == AirbyteProtocolType.UNKNOWN)) {
+            // Primitive types need to use JSON_VALUE to (a) strip quotes from strings, and
+            // (b) cast json null to sql null.
+            extractedValue = function("JSON_VALUE", String.class, extractedValue, val("$"));
+          }
           if (isStruct) {
             return case_()
                 .when(
@@ -179,8 +176,8 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
 
   @Override
   protected Condition cdcDeletedAtNotNullCondition() {
-    // TODO
-    return trueCondition();
+    return field(name(COLUMN_NAME_AB_LOADED_AT)).isNotNull()
+        .and(jsonTypeof(extractColumnAsJson(cdcDeletedAtColumn)).ne("NULL"));
   }
 
   @Override
@@ -220,6 +217,14 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
   @Override
   protected String beginTransaction() {
     return "START TRANSACTION";
+  }
+
+  private Field<Object> extractColumnAsJson(final ColumnId column) {
+    return function("JSON_EXTRACT", getJsonType(), field(name(COLUMN_NAME_DATA)), jsonPath(column));
+  }
+
+  private Field<String> jsonTypeof(final Field<?> field) {
+    return function("JSON_TYPE", SQLDataType.VARCHAR, field);
   }
 
   private static Param<String> jsonPath(final ColumnId column) {
