@@ -15,7 +15,7 @@ application {
     mainClass = 'io.airbyte.integrations.destination.bigquery.BigQueryDestination'
     applicationDefaultJvmArgs = ['-XX:+ExitOnOutOfMemoryError', '-XX:MaxRAMPercentage=75.0',
                                  '-XX:NativeMemoryTracking=detail', '-XX:+UnlockDiagnosticVMOptions',
-                                 '-XX:GCLockerRetryAllocationCount=100',
+                                 '-XX:GCLockerRetryAllocationCount=100', "-Dmicronaut.environments=destination",
 //            '-Djava.rmi.server.hostname=localhost',
 //            '-Dcom.sun.management.jmxremote=true',
 //            '-Dcom.sun.management.jmxremote.port=6000',
@@ -29,6 +29,13 @@ application {
 airbyteJavaConnector.addCdkDependencies()
 
 dependencies {
+    annotationProcessor 'info.picocli:picocli-codegen:4.7.5'
+    annotationProcessor 'io.micronaut:micronaut-inject-java:4.2.4'
+
+    implementation 'info.picocli:picocli:4.7.5'
+    implementation 'io.micronaut.picocli:micronaut-picocli:5.2.0'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.16.1'
+
     // TODO: Pull out common classes into CDK instead of depending on another destination
     implementation project(':airbyte-integrations:connectors:destination-gcs')
 
@@ -52,11 +59,11 @@ dependencies {
 }
 
 configurations.all {
-  resolutionStrategy {
-    // at time of writing: deps.toml declares google-cloud-storage 2.17.2
-    // which pulls in google-api-client:2.2.0
-    // which conflicts with google-cloud-bigquery, which requires google-api-client:1.x
-    // google-cloud-storage is OK with downgrading to anything >=1.31.1.
-    force 'com.google.api-client:google-api-client:1.31.5'
-  }
+    resolutionStrategy {
+        // at time of writing: deps.toml declares google-cloud-storage 2.17.2
+        // which pulls in google-api-client:2.2.0
+        // which conflicts with google-cloud-bigquery, which requires google-api-client:1.x
+        // google-cloud-storage is OK with downgrading to anything >=1.31.1.
+        force 'com.google.api-client:google-api-client:1.31.5'
+    }
 }
