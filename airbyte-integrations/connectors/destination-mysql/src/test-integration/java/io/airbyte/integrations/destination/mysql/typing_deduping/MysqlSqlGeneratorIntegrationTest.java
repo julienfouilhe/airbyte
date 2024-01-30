@@ -103,4 +103,9 @@ public class MysqlSqlGeneratorIntegrationTest extends JdbcSqlGeneratorIntegratio
     // we're currently on jooq 3.13; jooq's dropDatabase() call was only added in 3.14
     getDatabase().execute(getDslContext().dropSchema(namespace).getSQL(ParamType.INLINED));
   }
+
+  @Override
+  public boolean supportsSafeCast() {
+    return false;
+  }
 }

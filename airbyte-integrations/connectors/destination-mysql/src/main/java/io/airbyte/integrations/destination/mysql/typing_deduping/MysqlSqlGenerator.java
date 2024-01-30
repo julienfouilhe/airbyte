@@ -32,6 +32,7 @@ import org.jooq.DataType;
 import org.jooq.Field;
 import org.jooq.Param;
 import org.jooq.SQLDialect;
+import org.jooq.impl.DSL;
 import org.jooq.impl.DefaultDataType;
 import org.jooq.impl.SQLDataType;
 
@@ -142,6 +143,21 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
           }
         })
         .collect(Collectors.toList());
+  }
+
+  @Override
+  protected Field<?> castedField(final Field<?> field, final AirbyteProtocolType type, final boolean useExpensiveSaferCasting) {
+    if (type == AirbyteProtocolType.BOOLEAN) {
+      // for some reason, CAST('true' AS UNSIGNED) throws an error
+      // so we manually build a case statement to do the string equality check
+      return case_()
+          // The coerce just tells jooq that we're assuming `field` is a string value
+          .when(field.coerce(String.class).eq(val("true")), val(true))
+          .when(field.coerce(String.class).eq(val("false")), val(false))
+          .else_(val((Boolean) null));
+    } else {
+      return cast(field, toDialectType(type));
+    }
   }
 
   @Override
