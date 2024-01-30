@@ -162,7 +162,8 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
 
   @Override
   protected Field<?> buildAirbyteMetaColumn(final LinkedHashMap<ColumnId, AirbyteType> columns) {
-    // TODO Intentionally unimplemented for initial DV2 release
+    // TODO destination-mysql does not currently support safe casting. Intentionally don't populate
+    // the airbyte_meta.errors field.
     return cast(val("{}"), getJsonType()).as(COLUMN_NAME_AB_META);
   }
 
