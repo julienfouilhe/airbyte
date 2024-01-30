@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2023 Airbyte, Inc., all rights reserved.
+ */
+
 package io.airbyte.integrations.destination.mysql.typing_deduping;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -124,4 +128,5 @@ public class MysqlSqlGeneratorIntegrationTest extends JdbcSqlGeneratorIntegratio
   public boolean supportsSafeCast() {
     return false;
   }
+
 }

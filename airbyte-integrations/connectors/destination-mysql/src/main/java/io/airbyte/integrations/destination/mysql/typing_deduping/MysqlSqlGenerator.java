@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2023 Airbyte, Inc., all rights reserved.
+ */
+
 package io.airbyte.integrations.destination.mysql.typing_deduping;
 
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT;
@@ -66,11 +70,13 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
     return switch (airbyteProtocolType) {
       // jooq's TIMESTMAPWITHTIMEZONE type renders to `timestamp with timezone`...
       // which isn't valid mysql syntax.
-      // Legacy normalization used char(1024) https://github.com/airbytehq/airbyte/blob/master/airbyte-integrations/bases/base-normalization/dbt-project-template/macros/cross_db_utils/datatypes.sql#L233-L234
+      // Legacy normalization used char(1024)
+      // https://github.com/airbytehq/airbyte/blob/master/airbyte-integrations/bases/base-normalization/dbt-project-template/macros/cross_db_utils/datatypes.sql#L233-L234
       // so match that behavior I guess.
       case TIMESTAMP_WITH_TIMEZONE -> SQLDataType.VARCHAR(1024);
       // Mysql doesn't have a native time with timezone type.
-      // Legacy normalization used char(1024) https://github.com/airbytehq/airbyte/blob/master/airbyte-integrations/bases/base-normalization/dbt-project-template/macros/cross_db_utils/datatypes.sql#L233-L234
+      // Legacy normalization used char(1024)
+      // https://github.com/airbytehq/airbyte/blob/master/airbyte-integrations/bases/base-normalization/dbt-project-template/macros/cross_db_utils/datatypes.sql#L233-L234
       // so match that behavior I guess.
       case TIME_WITH_TIMEZONE -> SQLDataType.VARCHAR(1024);
       // Mysql VARCHAR can only go up to 16KiB. CLOB translates to mysql TEXT,
@@ -115,16 +121,16 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
                 .when(
                     extractedValue.isNull()
                         .or(function("JSON_TYPE", String.class, extractedValue).ne("OBJECT")),
-                    val((Object) null)
-                ).else_(extractedValue)
+                    val((Object) null))
+                .else_(extractedValue)
                 .as(quotedName(column.getKey().name()));
           } else if (isArray) {
             return case_()
                 .when(
                     extractedValue.isNull()
                         .or(function("JSON_TYPE", String.class, extractedValue).ne("ARRAY")),
-                    val((Object) null)
-                ).else_(extractedValue)
+                    val((Object) null))
+                .else_(extractedValue)
                 .as(quotedName(column.getKey().name()));
           } else {
             final Field<?> castedValue = castedField(extractedValue, type, useExpensiveSaferCasting);
@@ -134,11 +140,12 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
             return switch (primitive) {
               // These types are just casting to strings, so we need to use regex to validate their format
               case TIME_WITH_TIMEZONE -> case_()
-                    .when(castedValue.notLikeRegex("^[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?([-+][0-9]{2}:[0-9]{2}|Z)$"), val((Object) null))
-                    .else_(castedValue)
+                  .when(castedValue.notLikeRegex("^[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?([-+][0-9]{2}:[0-9]{2}|Z)$"), val((Object) null))
+                  .else_(castedValue)
                   .as(quotedName(column.getKey().name()));
               case TIMESTAMP_WITH_TIMEZONE -> case_()
-                  .when(castedValue.notLikeRegex("^[0-9]+-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?([-+][0-9]{2}:[0-9]{2}|Z)$"), val((Object) null))
+                  .when(castedValue.notLikeRegex("^[0-9]+-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?([-+][0-9]{2}:[0-9]{2}|Z)$"),
+                      val((Object) null))
                   .else_(castedValue)
                   .as(quotedName(column.getKey().name()));
               default -> castedValue.as(quotedName(column.getKey().name()));
@@ -219,4 +226,5 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
     // TODO escape jsonpath
     return val("$." + column.originalName());
   }
+
 }
