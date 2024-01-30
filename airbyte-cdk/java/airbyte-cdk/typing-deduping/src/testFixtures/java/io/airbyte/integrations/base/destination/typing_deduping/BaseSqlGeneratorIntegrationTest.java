@@ -416,8 +416,7 @@ public abstract class BaseSqlGeneratorIntegrationTest<DialectTableDefinition> {
         streamId,
         Streams.concat(
             BaseTypingDedupingTest.readRecords("sqlgenerator/alltypes_inputrecords.jsonl").stream(),
-            BaseTypingDedupingTest.readRecords("sqlgenerator/safe_cast/alltypes_inputrecords.jsonl").stream()
-        ).toList());
+            BaseTypingDedupingTest.readRecords("sqlgenerator/safe_cast/alltypes_inputrecords.jsonl").stream()).toList());
 
     TypeAndDedupeTransaction.executeTypeAndDedupe(generator, destinationHandler, incrementalDedupStream, Optional.empty(), "");
 
@@ -473,12 +472,16 @@ public abstract class BaseSqlGeneratorIntegrationTest<DialectTableDefinition> {
   /**
    * Verifies two behaviors:
    * <ul>
-   *   <ol>The isFinalTableEmpty method behaves correctly during a sync</ol>
-   *   <ol>Column names with mixed case are handled correctly</ol>
+   * <ol>
+   * The isFinalTableEmpty method behaves correctly during a sync
+   * </ol>
+   * <ol>
+   * Column names with mixed case are handled correctly
+   * </ol>
    * </ul>
    *
-   * The first behavior technically should be its own test, but we might as well just throw it into
-   * a random testcase to avoid running test setup/teardown again.
+   * The first behavior technically should be its own test, but we might as well just throw it into a
+   * random testcase to avoid running test setup/teardown again.
    */
   @Test
   public void mixedCaseTest() throws Exception {
