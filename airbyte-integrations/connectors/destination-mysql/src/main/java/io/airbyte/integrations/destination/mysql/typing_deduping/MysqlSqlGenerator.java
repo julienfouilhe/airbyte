@@ -229,7 +229,11 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
 
   private static Param<String> jsonPath(final ColumnId column) {
     // TODO escape jsonpath
-    return val("$." + column.originalName());
+    // We wrap the name in doublequotes for special character handling, and then escape the quoted string.
+    final String escapedName = column.originalName()
+        .replace("\"", "\\\"")
+        .replace("\\\\", "\\\\\\\\");
+    return val("$.\"" + escapedName + "\"");
   }
 
 }
