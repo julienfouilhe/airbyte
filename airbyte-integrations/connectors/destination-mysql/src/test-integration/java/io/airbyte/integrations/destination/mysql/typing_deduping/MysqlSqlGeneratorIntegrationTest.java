@@ -5,10 +5,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.airbyte.cdk.db.jdbc.AbstractJdbcCompatibleSourceOperations;
 import io.airbyte.cdk.db.jdbc.DefaultJdbcDatabase;
 import io.airbyte.cdk.db.jdbc.JdbcDatabase;
+import io.airbyte.cdk.db.jdbc.JdbcSourceOperations;
 import io.airbyte.cdk.db.jdbc.JdbcUtils;
 import io.airbyte.cdk.integrations.destination.jdbc.TableDefinition;
 import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcSqlGenerator;
 import io.airbyte.cdk.integrations.standardtest.destination.typing_deduping.JdbcSqlGeneratorIntegrationTest;
+import io.airbyte.commons.json.Jsons;
 import io.airbyte.integrations.base.destination.typing_deduping.DestinationHandler;
 import io.airbyte.integrations.destination.mysql.MySQLDestination;
 import io.airbyte.integrations.destination.mysql.MySQLDestinationAcceptanceTest;
@@ -35,6 +37,22 @@ public class MysqlSqlGeneratorIntegrationTest extends JdbcSqlGeneratorIntegratio
   private static String databaseName;
   private static JdbcDatabase database;
 
+  public static class MysqlSourceOperations extends JdbcSourceOperations {
+
+    @Override
+    public void copyToJsonField(final ResultSet resultSet, final int colIndex, final ObjectNode json) throws SQLException {
+      final String columnName = resultSet.getMetaData().getColumnName(colIndex);
+      final String columnTypeName = resultSet.getMetaData().getColumnTypeName(colIndex).toLowerCase();
+
+      switch (columnTypeName) {
+        // JSONB has no equivalent in JDBCType
+        case "json" -> json.set(columnName, Jsons.deserializeExact(resultSet.getString(colIndex)));
+        default -> super.copyToJsonField(resultSet, colIndex, json);
+      }
+    }
+
+  }
+
   @BeforeAll
   public static void setupMysql() throws Exception {
     testContainer = new MySQLContainer<>("mysql:8.0");
@@ -51,7 +69,7 @@ public class MysqlSqlGeneratorIntegrationTest extends JdbcSqlGeneratorIntegratio
     // static methods.
     final MySQLDestination insertDestination = new MySQLDestination();
     final DataSource dataSource = insertDestination.getDataSource(config);
-    database = insertDestination.getDatabase(dataSource);
+    database = new DefaultJdbcDatabase(dataSource, new MysqlSourceOperations());
   }
 
   @AfterAll
