@@ -1,5 +1,6 @@
 package io.airbyte.integrations.destination.mysql.typing_deduping;
 
+import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT;
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_META;
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_DATA;
 import static org.jooq.impl.DSL.case_;
@@ -8,6 +9,7 @@ import static org.jooq.impl.DSL.field;
 import static org.jooq.impl.DSL.function;
 import static org.jooq.impl.DSL.name;
 import static org.jooq.impl.DSL.quotedName;
+import static org.jooq.impl.DSL.rowNumber;
 import static org.jooq.impl.DSL.trueCondition;
 import static org.jooq.impl.DSL.val;
 
@@ -22,6 +24,7 @@ import io.airbyte.integrations.base.destination.typing_deduping.Sql;
 import io.airbyte.integrations.base.destination.typing_deduping.StreamConfig;
 import io.airbyte.integrations.base.destination.typing_deduping.StreamId;
 import io.airbyte.integrations.base.destination.typing_deduping.Struct;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
@@ -32,7 +35,7 @@ import org.jooq.DataType;
 import org.jooq.Field;
 import org.jooq.Param;
 import org.jooq.SQLDialect;
-import org.jooq.impl.DSL;
+import org.jooq.SortField;
 import org.jooq.impl.DefaultDataType;
 import org.jooq.impl.SQLDataType;
 
@@ -175,8 +178,17 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
 
   @Override
   protected Field<Integer> getRowNumber(final List<ColumnId> primaryKeys, final Optional<ColumnId> cursor) {
-    // TODO
-    return val(1).as(ROW_NUMBER_COLUMN_NAME);
+    final List<Field<?>> primaryKeyFields =
+        primaryKeys != null ? primaryKeys.stream().map(columnId -> field(quotedName(columnId.name()))).collect(Collectors.toList())
+            : new ArrayList<>();
+    final List<SortField<Object>> orderedFields = new ArrayList<>();
+    // mysql DESC implicitly sorts nulls last, so we don't need to specify it explicitly
+    cursor.ifPresent(columnId -> orderedFields.add(field(quotedName(columnId.name())).desc()));
+    orderedFields.add(field(quotedName(COLUMN_NAME_AB_EXTRACTED_AT)).desc());
+    return rowNumber()
+        .over()
+        .partitionBy(primaryKeyFields)
+        .orderBy(orderedFields).as(ROW_NUMBER_COLUMN_NAME);
   }
 
   @Override
