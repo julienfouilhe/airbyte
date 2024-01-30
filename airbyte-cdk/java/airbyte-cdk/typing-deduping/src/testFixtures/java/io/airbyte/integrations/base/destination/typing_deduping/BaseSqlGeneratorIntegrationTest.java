@@ -440,7 +440,7 @@ public abstract class BaseSqlGeneratorIntegrationTest<DialectTableDefinition> {
     createFinalTable(incrementalDedupStream, "");
     insertRawTableRecords(
         streamId,
-        BaseTypingDedupingTest.readRecords("sqlgenerator/safe_cast/alltypes_inputrecords.jsonl"));
+        BaseTypingDedupingTest.readRecords("sqlgenerator/alltypes_inputrecords.jsonl"));
 
     TypeAndDedupeTransaction.executeTypeAndDedupe(generator, destinationHandler, incrementalDedupStream, Optional.empty(), "");
 
