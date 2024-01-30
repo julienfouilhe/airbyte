@@ -2,12 +2,12 @@ package io.airbyte.integrations.destination.mysql.typing_deduping;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.airbyte.cdk.db.jdbc.AbstractJdbcCompatibleSourceOperations;
 import io.airbyte.cdk.db.jdbc.DefaultJdbcDatabase;
 import io.airbyte.cdk.db.jdbc.JdbcDatabase;
 import io.airbyte.cdk.db.jdbc.JdbcSourceOperations;
 import io.airbyte.cdk.db.jdbc.JdbcUtils;
 import io.airbyte.cdk.integrations.destination.jdbc.TableDefinition;
+import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcDestinationHandler;
 import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcSqlGenerator;
 import io.airbyte.cdk.integrations.standardtest.destination.typing_deduping.JdbcSqlGeneratorIntegrationTest;
 import io.airbyte.commons.json.Jsons;
@@ -15,8 +15,6 @@ import io.airbyte.integrations.base.destination.typing_deduping.DestinationHandl
 import io.airbyte.integrations.destination.mysql.MySQLDestination;
 import io.airbyte.integrations.destination.mysql.MySQLDestinationAcceptanceTest;
 import io.airbyte.integrations.destination.mysql.MySQLNameTransformer;
-import io.airbyte.protocol.models.JsonSchemaType;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import javax.sql.DataSource;
@@ -85,7 +83,7 @@ public class MysqlSqlGeneratorIntegrationTest extends JdbcSqlGeneratorIntegratio
 
   @Override
   protected DestinationHandler<TableDefinition> getDestinationHandler() {
-    return new MysqlDestinationHandler(databaseName, database);
+    return new JdbcDestinationHandler(databaseName, database);
   }
 
   @Test
