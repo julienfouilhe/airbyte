@@ -9,9 +9,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.airbyte.cdk.db.jdbc.DefaultJdbcDatabase;
 import io.airbyte.cdk.db.jdbc.JdbcDatabase;
 import io.airbyte.cdk.db.jdbc.JdbcSourceOperations;
-import io.airbyte.cdk.db.jdbc.JdbcUtils;
 import io.airbyte.cdk.integrations.destination.jdbc.TableDefinition;
-import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcDestinationHandler;
 import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcSqlGenerator;
 import io.airbyte.cdk.integrations.standardtest.destination.typing_deduping.JdbcSqlGeneratorIntegrationTest;
 import io.airbyte.commons.json.Jsons;
@@ -36,7 +34,6 @@ import org.testcontainers.containers.MySQLContainer;
 public class MysqlSqlGeneratorIntegrationTest extends JdbcSqlGeneratorIntegrationTest {
 
   private static MySQLContainer<?> testContainer;
-  private static String databaseName;
   private static JdbcDatabase database;
 
   public static class MysqlSourceOperations extends JdbcSourceOperations {
@@ -46,10 +43,11 @@ public class MysqlSqlGeneratorIntegrationTest extends JdbcSqlGeneratorIntegratio
       final String columnName = resultSet.getMetaData().getColumnName(colIndex);
       final String columnTypeName = resultSet.getMetaData().getColumnTypeName(colIndex).toLowerCase();
 
-      switch (columnTypeName) {
-        // JSONB has no equivalent in JDBCType
-        case "json" -> json.set(columnName, Jsons.deserializeExact(resultSet.getString(colIndex)));
-        default -> super.copyToJsonField(resultSet, colIndex, json);
+      // JSONB has no equivalent in JDBCType
+      if ("json".equals(columnTypeName)) {
+        json.set(columnName, Jsons.deserializeExact(resultSet.getString(colIndex)));
+      } else {
+        super.copyToJsonField(resultSet, colIndex, json);
       }
     }
 
@@ -65,8 +63,6 @@ public class MysqlSqlGeneratorIntegrationTest extends JdbcSqlGeneratorIntegratio
 
     // TODO move this into JdbcSqlGeneratorIntegrationTest?
     // This code was largely copied from RedshiftSqlGeneratorIntegrationTest
-    // TODO: Existing in AbstractJdbcDestination, pull out to a util file
-    databaseName = config.get(JdbcUtils.DATABASE_KEY).asText();
     // TODO: Its sad to instantiate unneeded dependency to construct database and datsources. pull it to
     // static methods.
     final MySQLDestination insertDestination = new MySQLDestination();
@@ -91,7 +87,7 @@ public class MysqlSqlGeneratorIntegrationTest extends JdbcSqlGeneratorIntegratio
     // All of our queries pass a value into the "schemaName" parameter, which mysql treats as being
     // the database name.
     // So we pass null for the databaseName parameter here, because we don't use the 'test' database at all.
-    return new JdbcDestinationHandler(null, database, SQLDialect.MYSQL);
+    return new MysqlDestinationHandler(null, database);
   }
 
   @Test
