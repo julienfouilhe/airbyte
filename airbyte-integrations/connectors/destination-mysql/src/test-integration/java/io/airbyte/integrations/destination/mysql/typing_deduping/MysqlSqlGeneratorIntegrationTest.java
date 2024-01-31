@@ -91,7 +91,7 @@ public class MysqlSqlGeneratorIntegrationTest extends JdbcSqlGeneratorIntegratio
     // All of our queries pass a value into the "schemaName" parameter, which mysql treats as being
     // the database name.
     // So we pass null for the databaseName parameter here, because we don't use the 'test' database at all.
-    return new JdbcDestinationHandler(null, database);
+    return new JdbcDestinationHandler(null, database, SQLDialect.MYSQL);
   }
 
   @Test
