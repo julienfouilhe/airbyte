@@ -50,6 +50,7 @@ import java.util.function.Consumer;
 import javax.sql.DataSource;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.StringUtils;
+import org.jooq.SQLDialect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -250,7 +251,9 @@ public abstract class AbstractJdbcDestination extends JdbcConnector implements D
   protected abstract JdbcSqlGenerator getSqlGenerator();
 
   protected JdbcDestinationHandler getDestinationHandler(final String databaseName, final JdbcDatabase database) {
-    return new JdbcDestinationHandler(databaseName, database);
+    // Pick a random dialect. Most destinations should override this anyway.
+    // TODO ... why can't we just make this method abstract?
+    return new JdbcDestinationHandler(databaseName, database, SQLDialect.POSTGRES);
   }
 
   /**

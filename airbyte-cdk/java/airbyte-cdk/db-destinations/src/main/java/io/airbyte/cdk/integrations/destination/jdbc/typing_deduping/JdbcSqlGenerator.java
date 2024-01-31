@@ -266,7 +266,7 @@ public abstract class JdbcSqlGenerator implements SqlGenerator<TableDefinition> 
     }
     return transactionally(Stream.concat(
         Stream.of(
-            dropTableIfExists(quotedName(stream.id().finalNamespace(), finalTableIdentifier)).getSQL(ParamType.INLINED),
+            getDslContext().dropTableIfExists(quotedName(stream.id().finalNamespace(), finalTableIdentifier)).getSQL(ParamType.INLINED),
             createTableSql(stream.id().finalNamespace(), finalTableIdentifier, stream.columns())),
         createIndexSql(stream, suffix).stream()).toList());
   }
@@ -302,7 +302,7 @@ public abstract class JdbcSqlGenerator implements SqlGenerator<TableDefinition> 
     return transactionally(
         dsl.createSchemaIfNotExists(streamId.rawNamespace()).getSQL(),
         dsl.dropTableIfExists(rawTableName).getSQL(),
-        getDslContext().createTable(rawTableName)
+        dsl.createTable(rawTableName)
             .column(COLUMN_NAME_AB_RAW_ID, SQLDataType.VARCHAR(36).nullable(false))
             .column(COLUMN_NAME_AB_EXTRACTED_AT, getTimestampWithTimeZoneType().nullable(false))
             .column(COLUMN_NAME_AB_LOADED_AT, getTimestampWithTimeZoneType().nullable(false))
