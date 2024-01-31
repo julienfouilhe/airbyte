@@ -18,6 +18,8 @@ import static org.jooq.impl.DSL.rowNumber;
 import static org.jooq.impl.DSL.trueCondition;
 import static org.jooq.impl.DSL.val;
 
+import com.google.common.collect.ImmutableMap;
+import io.airbyte.cdk.integrations.base.JavaBaseConstants;
 import io.airbyte.cdk.integrations.destination.NamingConventionTransformer;
 import io.airbyte.cdk.integrations.destination.jdbc.TableDefinition;
 import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcSqlGenerator;
@@ -32,8 +34,10 @@ import io.airbyte.integrations.base.destination.typing_deduping.Struct;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import javax.annotation.concurrent.Immutable;
 import org.apache.commons.lang3.NotImplementedException;
 import org.jooq.Condition;
 import org.jooq.DataType;
@@ -47,6 +51,11 @@ import org.jooq.impl.SQLDataType;
 public class MysqlSqlGenerator extends JdbcSqlGenerator {
 
   public static final DefaultDataType<Object> JSON_TYPE = new DefaultDataType<>(null, Object.class, "json");
+
+  private static final Map<String, String> MYSQL_TYPE_NAME_TO_JDBC_TYPE = ImmutableMap.of(
+      "text", "clob",
+      "bit", "boolean"
+  );
 
   public MysqlSqlGenerator(final NamingConventionTransformer namingResolver) {
     super(namingResolver);
@@ -77,7 +86,7 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
       case TIMESTAMP_WITH_TIMEZONE -> SQLDataType.VARCHAR(1024);
       // Mysql doesn't have a native time with timezone type.
       // Legacy normalization used char(1024)
-      // https://github.com/airbytehq/airbyte/blob/master/airbyte-integrations/bases/base-normalization/dbt-project-template/macros/cross_db_utils/datatypes.sql#L233-L234
+      // https://github.com/airbytehq/airbyte/blob/master/airbyte-integrations/bases/base-normalization/dbt-project-template/macros/cross_db_utils/datatypes.sql#L339-L341
       // so match that behavior I guess.
       case TIME_WITH_TIMEZONE -> SQLDataType.VARCHAR(1024);
       // Mysql VARCHAR can only go up to 16KiB. CLOB translates to mysql TEXT,
@@ -211,7 +220,27 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
 
   @Override
   public boolean existingSchemaMatchesStreamConfig(final StreamConfig stream, final TableDefinition existingTable) {
-    throw new NotImplementedException();
+    // Check that the columns match, with special handling for the metadata columns.
+    // This is mostly identical to the postgres implementation, but with a few differences:
+    // * use json instead of jsonb
+    final LinkedHashMap<String, String> intendedColumns = stream.columns().entrySet().stream()
+        .collect(LinkedHashMap::new,
+            (map, column) -> map.put(column.getKey().name(), toDialectType(column.getValue()).getTypeName()),
+            LinkedHashMap::putAll);
+    final LinkedHashMap<String, String> actualColumns = existingTable.columns().entrySet().stream()
+        .filter(column -> JavaBaseConstants.V2_FINAL_TABLE_METADATA_COLUMNS.stream()
+            .noneMatch(airbyteColumnName -> airbyteColumnName.equals(column.getKey())))
+        .collect(LinkedHashMap::new,
+            (map, column) -> map.put(column.getKey(), jdbcTypeNameFromPostgresTypeName(column.getValue().type())),
+            LinkedHashMap::putAll);
+
+    final boolean sameColumns = actualColumns.equals(intendedColumns)
+        && "VARCHAR".equals(existingTable.columns().get(JavaBaseConstants.COLUMN_NAME_AB_RAW_ID).type())
+        // TODO this should be TIMESTAMP(6) to match existing normalization behavior
+        && "VARCHAR".equals(existingTable.columns().get(JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT).type())
+        && "JSON".equals(existingTable.columns().get(JavaBaseConstants.COLUMN_NAME_AB_META).type());
+
+    return sameColumns;
   }
 
   @Override
@@ -236,6 +265,10 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
         .replace("\\", "\\\\")
         .replace("\"", "\\\"");
     return val("$.\"" + escapedName + "\"");
+  }
+
+  private static String jdbcTypeNameFromPostgresTypeName(final String mysqlType) {
+    return MYSQL_TYPE_NAME_TO_JDBC_TYPE.getOrDefault(mysqlType.toLowerCase(), mysqlType.toLowerCase());
   }
 
 }
