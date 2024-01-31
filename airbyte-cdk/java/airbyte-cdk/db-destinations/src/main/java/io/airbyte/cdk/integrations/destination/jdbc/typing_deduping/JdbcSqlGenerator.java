@@ -317,7 +317,7 @@ public abstract class JdbcSqlGenerator implements SqlGenerator<TableDefinition> 
 
   @Override
   public Sql clearLoadedAt(final StreamId streamId) {
-    return Sql.of(update(table(name(streamId.rawNamespace(), streamId.rawName())))
+    return Sql.of(getDslContext().update(table(name(streamId.rawNamespace(), streamId.rawName())))
         .set(field(COLUMN_NAME_AB_LOADED_AT), inline((String) null))
         .getSQL());
   }
