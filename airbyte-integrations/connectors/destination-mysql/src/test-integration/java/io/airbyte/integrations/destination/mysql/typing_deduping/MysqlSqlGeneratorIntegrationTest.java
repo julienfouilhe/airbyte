@@ -87,7 +87,11 @@ public class MysqlSqlGeneratorIntegrationTest extends JdbcSqlGeneratorIntegratio
 
   @Override
   protected DestinationHandler<TableDefinition> getDestinationHandler() {
-    return new JdbcDestinationHandler(databaseName, database);
+    // Mysql doesn't have an actual schema concept.
+    // All of our queries pass a value into the "schemaName" parameter, which mysql treats as being
+    // the database name.
+    // So we pass null for the databaseName parameter here, because we don't use the 'test' database at all.
+    return new JdbcDestinationHandler(null, database);
   }
 
   @Test
