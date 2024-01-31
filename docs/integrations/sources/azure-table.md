@@ -66,7 +66,8 @@ We recommend creating a restricted key specifically for Airbyte access. This wil
 ## Changelog
 
 | Version | Date       | Pull Request                                             | Subject                                           |
-| :------ | :--------- | :------------------------------------------------------- | :------------------------------------------------ |
+|:--------|:-----------| :------------------------------------------------------- |:--------------------------------------------------|
+| 0.1.4   | 2024-01-31 | [15591](https://github.com/airbytehq/airbyte/pull/15591) | Update use of ConnectorStateManager               |
 | 0.1.3   | 2022-08-12 | [15591](https://github.com/airbytehq/airbyte/pull/15591) | Clean instantiation of AirbyteStream              |
 | 0.1.2   | 2021-12-23 | [14212](https://github.com/airbytehq/airbyte/pull/14212) | Adding incremental load capability                |
 | 0.1.1   | 2021-12-23 | [8434](https://github.com/airbytehq/airbyte/pull/8434)   | Update fields in source-connectors specifications |
