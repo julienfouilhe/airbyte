@@ -160,6 +160,11 @@ public class RedshiftSqlGeneratorIntegrationTest extends JdbcSqlGeneratorIntegra
   }
 
   @Override
+  protected boolean supportsSafeCast() {
+    return true;
+  }
+
+  @Override
   protected JdbcDatabase getDatabase() {
     return database;
   }
