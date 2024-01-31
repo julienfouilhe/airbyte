@@ -191,7 +191,7 @@ public class JdbcDestinationHandler implements DestinationHandler<TableDefinitio
   }
 
   @NotNull
-  private DSLContext getDslContext() {
+  protected DSLContext getDslContext() {
     return DSL.using(dialect);
   }
 
