@@ -228,11 +228,13 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
   }
 
   private static Param<String> jsonPath(final ColumnId column) {
-    // TODO escape jsonpath
     // We wrap the name in doublequotes for special character handling, and then escape the quoted string.
+    // For example, let's say we have a column called f'oo"bar\baz
+    // This translates to a json path $."f'oo\"bar\\baz"
+    // jooq then renders it into a sql string, like '$."f\'oo\\"bar\\\\baz"'
     final String escapedName = column.originalName()
-        .replace("\"", "\\\"")
-        .replace("\\\\", "\\\\\\\\");
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"");
     return val("$.\"" + escapedName + "\"");
   }
 
