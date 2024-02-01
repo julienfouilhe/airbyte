@@ -79,11 +79,6 @@ class MySqlStressTest extends JdbcStressTest {
     super.setup();
   }
 
-  @AfterEach
-  void tearDown() {
-    dslContext.close();
-  }
-
   @AfterAll
   static void cleanUp() {
     container.close();
