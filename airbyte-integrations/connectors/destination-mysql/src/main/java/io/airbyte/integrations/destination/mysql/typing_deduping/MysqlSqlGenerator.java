@@ -37,6 +37,7 @@ import io.airbyte.integrations.base.destination.typing_deduping.StreamConfig;
 import io.airbyte.integrations.base.destination.typing_deduping.StreamId;
 import io.airbyte.integrations.base.destination.typing_deduping.Struct;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
@@ -70,7 +71,9 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
 
   private static final Map<String, String> MYSQL_TYPE_NAME_TO_JDBC_TYPE = ImmutableMap.of(
       "text", "clob",
-      "bit", "boolean"
+      "bit", "boolean",
+      // this is atrocious
+      "datetime", "datetime(6)"
   );
 
   public MysqlSqlGenerator(final NamingConventionTransformer namingResolver) {
@@ -106,7 +109,9 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
       // so match that behavior I guess.
       case TIME_WITH_TIMEZONE -> SQLDataType.VARCHAR(1024);
       // Force higher precision on temporal types. The default is 0.
-      case TIMESTAMP_WITHOUT_TIMEZONE -> SQLDataType.TIMESTAMP(6);
+      // our current version of jooq doesn't support precision on SQLDataType.LOCALDATETIME,
+      // so we build the type manually.
+      case TIMESTAMP_WITHOUT_TIMEZONE -> new DefaultDataType<>(null, LocalDateTime.class, "datetime(6)");
       case TIME_WITHOUT_TIMEZONE -> SQLDataType.TIME(6);
       // Mysql VARCHAR can only go up to 16KiB. CLOB translates to mysql TEXT,
       // which supports longer strings.

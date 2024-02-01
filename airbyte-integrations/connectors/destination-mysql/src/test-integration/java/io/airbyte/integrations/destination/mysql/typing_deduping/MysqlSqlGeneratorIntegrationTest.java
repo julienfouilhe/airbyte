@@ -10,8 +10,10 @@ import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_RAW_ID;
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_DATA;
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_EMITTED_AT;
-import static io.airbyte.cdk.integrations.base.JavaBaseConstants.LEGACY_RAW_TABLE_COLUMNS;
 import static io.airbyte.integrations.destination.mysql.typing_deduping.MysqlSqlGenerator.TIMESTAMP_FORMATTER;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -24,6 +26,7 @@ import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcSqlGener
 import io.airbyte.cdk.integrations.standardtest.destination.typing_deduping.JdbcSqlGeneratorIntegrationTest;
 import io.airbyte.commons.json.Jsons;
 import io.airbyte.integrations.base.destination.typing_deduping.DestinationHandler;
+import io.airbyte.integrations.base.destination.typing_deduping.Sql;
 import io.airbyte.integrations.base.destination.typing_deduping.StreamId;
 import io.airbyte.integrations.destination.mysql.MySQLDestination;
 import io.airbyte.integrations.destination.mysql.MySQLDestinationAcceptanceTest;
@@ -32,6 +35,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import javax.sql.DataSource;
 import org.jooq.DataType;
 import org.jooq.Field;
@@ -171,6 +175,33 @@ public class MysqlSqlGeneratorIntegrationTest extends JdbcSqlGeneratorIntegratio
   @Override
   public void testCreateTableIncremental() throws Exception {
     // TODO
+    final Sql sql = generator.createTable(incrementalDedupStream, "", false);
+    destinationHandler.execute(sql);
+
+    final Optional<TableDefinition> existingTable = destinationHandler.findExistingTable(incrementalDedupStream.id());
+
+    assertTrue(existingTable.isPresent());
+    assertAll(
+        () -> assertEquals("VARCHAR", existingTable.get().columns().get("_airbyte_raw_id").type()),
+        () -> assertEquals("TIMESTAMP", existingTable.get().columns().get("_airbyte_extracted_at").type()),
+        () -> assertEquals("JSON", existingTable.get().columns().get("_airbyte_meta").type()),
+        () -> assertEquals("BIGINT", existingTable.get().columns().get("id1").type()),
+        () -> assertEquals("BIGINT", existingTable.get().columns().get("id2").type()),
+        () -> assertEquals("VARCHAR", existingTable.get().columns().get("updated_at").type()),
+        () -> assertEquals("JSON", existingTable.get().columns().get("struct").type()),
+        () -> assertEquals("JSON", existingTable.get().columns().get("array").type()),
+        // Note that we use text here, since mysql varchar is limited to 64K
+        () -> assertEquals("TEXT", existingTable.get().columns().get("string").type()),
+        () -> assertEquals("DECIMAL", existingTable.get().columns().get("number").type()),
+        () -> assertEquals("BIGINT", existingTable.get().columns().get("integer").type()),
+        () -> assertEquals("BIT", existingTable.get().columns().get("boolean").type()),
+        () -> assertEquals("VARCHAR", existingTable.get().columns().get("timestamp_with_timezone").type()),
+        () -> assertEquals("DATETIME", existingTable.get().columns().get("timestamp_without_timezone").type()),
+        () -> assertEquals("VARCHAR", existingTable.get().columns().get("time_with_timezone").type()),
+        () -> assertEquals("TIME", existingTable.get().columns().get("time_without_timezone").type()),
+        () -> assertEquals("DATE", existingTable.get().columns().get("date").type()),
+        () -> assertEquals("JSON", existingTable.get().columns().get("unknown").type()));
+    // TODO assert on table clustering, etc.
   }
 
   @Override
