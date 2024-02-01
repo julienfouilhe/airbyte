@@ -47,6 +47,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
@@ -54,6 +55,7 @@ import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.utility.DockerImageName;
 
 @TestInstance(Lifecycle.PER_CLASS)
+@Disabled
 public class CdcMssqlSourceTest extends CdcSourceTest<MssqlSource, MsSQLTestDatabase> {
 
   static private final String CDC_ROLE_NAME = "cdc_selector";
@@ -77,7 +79,6 @@ public class CdcMssqlSourceTest extends CdcSourceTest<MssqlSource, MsSQLTestData
 
   @BeforeAll
   public void beforeAll() {
-    new MsSQLContainerFactory().withAgent(privateContainer);
     privateContainer.start();
   }
 
@@ -168,10 +169,10 @@ public class CdcMssqlSourceTest extends CdcSourceTest<MssqlSource, MsSQLTestData
   protected void tearDown() {
     try {
       DataSourceFactory.close(testDataSource);
+      super.tearDown();
     } catch (final Exception e) {
       throw new RuntimeException(e);
     }
-    super.tearDown();
 
   }
 

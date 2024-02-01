@@ -16,24 +16,15 @@ public class MsSQLContainerFactory implements ContainerFactory<MSSQLServerContai
   public MSSQLServerContainer<?> createNewContainer(DockerImageName imageName) {
     MSSQLServerContainer container =
         new MSSQLServerContainer<>(imageName.asCompatibleSubstituteFor("mcr.microsoft.com/mssql/server")).acceptLicense();
-    container.addEnv("MSSQL_MEMORY_LIMIT_MB", "384");
+    container.addEnv("MSSQL_MEMORY_LIMIT_MB", "2048");
+    container.addEnv("MSSQL_AGENT_ENABLED", "True");
+    container.withNetwork(Network.newNetwork());
     return container;
   }
 
   @Override
   public Class<?> getContainerClass() {
     return MSSQLServerContainer.class;
-  }
-
-  /**
-   * Create a new network and bind it to the container.
-   */
-  public void withNetwork(MSSQLServerContainer<?> container) {
-    container.withNetwork(Network.newNetwork());
-  }
-
-  public void withAgent(MSSQLServerContainer<?> container) {
-    container.addEnv("MSSQL_AGENT_ENABLED", "True");
   }
 
   public void withSslCertificates(MSSQLServerContainer<?> container) {

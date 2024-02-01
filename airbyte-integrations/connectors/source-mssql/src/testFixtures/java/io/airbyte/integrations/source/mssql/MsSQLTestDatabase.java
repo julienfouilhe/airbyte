@@ -43,8 +43,6 @@ public class MsSQLTestDatabase extends TestDatabase<MSSQLServerContainer<?>, MsS
 
   public static enum ContainerModifier {
 
-    NETWORK("withNetwork"),
-    AGENT("withAgent"),
     WITH_SSL_CERTIFICATES("withSslCertificates");
 
     private final String methodName;
@@ -59,10 +57,10 @@ public class MsSQLTestDatabase extends TestDatabase<MSSQLServerContainer<?>, MsS
     final String[] methodNames = Stream.of(methods).map(im -> im.methodName).toList().toArray(new String[0]);
     final var container = new MsSQLContainerFactory().shared(imageName.reference, methodNames);
     final var testdb = new MsSQLTestDatabase(container);
-    return testdb
-        .withConnectionProperty("encrypt", "false")
+    testdb.withConnectionProperty("encrypt", "false")
         .withConnectionProperty("databaseName", testdb.getDatabaseName())
         .initialized();
+    return testdb.withWaitUntilAgentRunning();
   }
 
   public MsSQLTestDatabase(final MSSQLServerContainer<?> container) {
