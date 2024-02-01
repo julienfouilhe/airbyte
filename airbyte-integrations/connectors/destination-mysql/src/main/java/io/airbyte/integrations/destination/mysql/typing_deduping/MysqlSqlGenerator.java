@@ -98,6 +98,9 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
       // https://github.com/airbytehq/airbyte/blob/master/airbyte-integrations/bases/base-normalization/dbt-project-template/macros/cross_db_utils/datatypes.sql#L339-L341
       // so match that behavior I guess.
       case TIME_WITH_TIMEZONE -> SQLDataType.VARCHAR(1024);
+      // Force higher precision on temporal types. The default is 0.
+      case TIMESTAMP_WITHOUT_TIMEZONE -> SQLDataType.TIMESTAMP(6);
+      case TIME_WITHOUT_TIMEZONE -> SQLDataType.TIME(6);
       // Mysql VARCHAR can only go up to 16KiB. CLOB translates to mysql TEXT,
       // which supports longer strings.
       case STRING -> SQLDataType.CLOB;
@@ -155,11 +158,11 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
             return switch (primitive) {
               // These types are just casting to strings, so we need to use regex to validate their format
               case TIME_WITH_TIMEZONE -> case_()
-                  .when(castedValue.notLikeRegex("^[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?([-+][0-9]{2}:[0-9]{2}|Z)$"), val((Object) null))
+                  .when(castedValue.notLikeRegex("^[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?([-+][0-9]{2}(:?[0-9]{2})?|Z)$"), val((Object) null))
                   .else_(castedValue)
                   .as(quotedName(column.getKey().name()));
               case TIMESTAMP_WITH_TIMEZONE -> case_()
-                  .when(castedValue.notLikeRegex("^[0-9]+-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?([-+][0-9]{2}:[0-9]{2}|Z)$"),
+                  .when(castedValue.notLikeRegex("^[0-9]+-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?([-+][0-9]{2}(:?[0-9]{2})?|Z)$"),
                       val((Object) null))
                   .else_(castedValue)
                   .as(quotedName(column.getKey().name()));

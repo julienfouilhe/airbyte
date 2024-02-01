@@ -6,6 +6,7 @@ package io.airbyte.integrations.destination.mysql.typing_deduping;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.airbyte.cdk.db.factory.DataSourceFactory;
 import io.airbyte.cdk.db.jdbc.DefaultJdbcDatabase;
 import io.airbyte.cdk.db.jdbc.JdbcDatabase;
 import io.airbyte.cdk.db.jdbc.JdbcSourceOperations;
