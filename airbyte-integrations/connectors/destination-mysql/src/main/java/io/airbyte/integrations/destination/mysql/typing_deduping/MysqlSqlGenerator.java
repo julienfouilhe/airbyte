@@ -36,6 +36,7 @@ import io.airbyte.integrations.base.destination.typing_deduping.Sql;
 import io.airbyte.integrations.base.destination.typing_deduping.StreamConfig;
 import io.airbyte.integrations.base.destination.typing_deduping.StreamId;
 import io.airbyte.integrations.base.destination.typing_deduping.Struct;
+import io.airbyte.protocol.models.v0.DestinationSyncMode;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -46,7 +47,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.NotImplementedException;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
@@ -198,6 +201,48 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
     } else {
       return cast(field, toDialectType(type));
     }
+  }
+
+  @Override
+  public Sql createTable(final StreamConfig stream, final String suffix, final boolean force) {
+    // jooq doesn't currently support creating indexes as part of a create table statement, even though
+    // mysql supports this. So we'll just create the indexes afterward.
+    // Fortunately, adding indexes to an empty table is pretty cheap.
+    final List<Sql> statements = new ArrayList<>();
+    final Name finalTableName = name(stream.id().finalNamespace(), stream.id().finalName() + suffix);
+
+    statements.add(super.createTable(stream, suffix, force));
+
+    if (stream.destinationSyncMode() == DestinationSyncMode.APPEND_DEDUP) {
+      // An index for our ROW_NUMBER() PARTITION BY pk ORDER BY cursor, extracted_at function
+      final List<Name> pkNames = stream.primaryKey().stream()
+          .map(pk -> quotedName(pk.name()))
+          .toList();
+      // TODO mysql create index needs `create index <table_name>`, not `create index <database>.<table>`
+      // so: tell jooq to do that, and also use the raw table name instead of the final table name to avoid collisions
+      // TODO solve ERROR: 1071 (42000): Specified key was too long; max key length is 3072 bytes
+      // so: for varchar columns, use e.g. `column_name(50)` instead of the entire column
+      statements.add(Sql.of(getDslContext().createIndex().on(
+              finalTableName,
+              Stream.of(
+                  pkNames.stream(),
+                  // if cursor is present, then a stream containing its name
+                  // but if no cursor, then empty stream
+                  stream.cursor().stream().map(cursor -> quotedName(cursor.name())),
+                  Stream.of(name(COLUMN_NAME_AB_EXTRACTED_AT))).flatMap(Function.identity()).toList())
+          .getSQL()));
+    }
+    statements.add(Sql.of(getDslContext().createIndex().on(
+            finalTableName,
+            name(COLUMN_NAME_AB_EXTRACTED_AT))
+        .getSQL()));
+
+    statements.add(Sql.of(getDslContext().createIndex().on(
+            finalTableName,
+            name(COLUMN_NAME_AB_RAW_ID))
+        .getSQL()));
+
+    return Sql.concat(statements);
   }
 
   @Override
