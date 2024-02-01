@@ -5,9 +5,13 @@
 package io.airbyte.integrations.destination.mysql.typing_deduping;
 
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT;
+import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_ID;
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_LOADED_AT;
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_META;
+import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_RAW_ID;
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_DATA;
+import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_EMITTED_AT;
+import static io.airbyte.integrations.base.destination.typing_deduping.Sql.transactionally;
 import static org.jooq.impl.DSL.case_;
 import static org.jooq.impl.DSL.cast;
 import static org.jooq.impl.DSL.field;
@@ -15,6 +19,8 @@ import static org.jooq.impl.DSL.function;
 import static org.jooq.impl.DSL.name;
 import static org.jooq.impl.DSL.quotedName;
 import static org.jooq.impl.DSL.rowNumber;
+import static org.jooq.impl.DSL.select;
+import static org.jooq.impl.DSL.table;
 import static org.jooq.impl.DSL.trueCondition;
 import static org.jooq.impl.DSL.val;
 
@@ -40,11 +46,14 @@ import java.util.stream.Collectors;
 import javax.annotation.concurrent.Immutable;
 import org.apache.commons.lang3.NotImplementedException;
 import org.jooq.Condition;
+import org.jooq.DSLContext;
 import org.jooq.DataType;
 import org.jooq.Field;
+import org.jooq.Name;
 import org.jooq.Param;
 import org.jooq.SQLDialect;
 import org.jooq.SortField;
+import org.jooq.conf.ParamType;
 import org.jooq.impl.DefaultDataType;
 import org.jooq.impl.SQLDataType;
 
@@ -241,6 +250,24 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
         && "JSON".equals(existingTable.columns().get(JavaBaseConstants.COLUMN_NAME_AB_META).type());
 
     return sameColumns;
+  }
+
+  @Override
+  public Sql migrateFromV1toV2(final StreamId streamId, final String namespace, final String tableName) {
+    final Name rawTableName = name(streamId.rawNamespace(), streamId.rawName());
+    final DSLContext dsl = getDslContext();
+    return transactionally(
+        dsl.createSchemaIfNotExists(streamId.rawNamespace()).getSQL(),
+        dsl.dropTableIfExists(rawTableName).getSQL(),
+        // mysql doesn't support `create table (columnDecls...) AS select...`.
+        // It only allows `create table AS select...`.
+        dsl.createTable(rawTableName)
+            .as(select(
+                field(COLUMN_NAME_AB_ID).as(COLUMN_NAME_AB_RAW_ID),
+                field(COLUMN_NAME_EMITTED_AT).as(COLUMN_NAME_AB_EXTRACTED_AT),
+                cast(null, getTimestampWithTimeZoneType()).as(COLUMN_NAME_AB_LOADED_AT),
+                field(COLUMN_NAME_DATA).as(COLUMN_NAME_DATA)).from(table(name(namespace, tableName))))
+            .getSQL(ParamType.INLINED));
   }
 
   @Override
