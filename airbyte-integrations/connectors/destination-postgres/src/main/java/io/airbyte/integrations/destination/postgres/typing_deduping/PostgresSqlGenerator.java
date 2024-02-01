@@ -9,7 +9,6 @@ import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_META;
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_RAW_ID;
 import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_DATA;
-import static java.util.Collections.emptyList;
 import static org.jooq.impl.DSL.array;
 import static org.jooq.impl.DSL.case_;
 import static org.jooq.impl.DSL.cast;
@@ -135,21 +134,6 @@ public class PostgresSqlGenerator extends JdbcSqlGenerator {
         .getSQL()));
 
     return Sql.concat(statements);
-  }
-
-  @Override
-  protected List<String> createIndexSql(final StreamConfig stream, final String suffix) {
-    if (stream.destinationSyncMode() == DestinationSyncMode.APPEND_DEDUP && !stream.primaryKey().isEmpty()) {
-      return List.of(
-          getDslContext().createIndex().on(
-              name(stream.id().finalNamespace(), stream.id().finalName() + suffix),
-              stream.primaryKey().stream()
-                  .map(pk -> quotedName(pk.name()))
-                  .toList())
-              .getSQL());
-    } else {
-      return emptyList();
-    }
   }
 
   @Override
