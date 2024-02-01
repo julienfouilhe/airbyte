@@ -171,5 +171,4 @@ public class BigQueryDestinationHandler implements DestinationHandler<TableDefin
           });
     }
   }
-
 }
