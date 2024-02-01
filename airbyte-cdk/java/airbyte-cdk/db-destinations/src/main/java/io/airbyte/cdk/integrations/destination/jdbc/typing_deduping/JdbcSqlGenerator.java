@@ -15,7 +15,6 @@ import static io.airbyte.integrations.base.destination.typing_deduping.Sql.trans
 import static java.util.stream.Collectors.toList;
 import static org.jooq.impl.DSL.asterisk;
 import static org.jooq.impl.DSL.cast;
-import static org.jooq.impl.DSL.dropTableIfExists;
 import static org.jooq.impl.DSL.field;
 import static org.jooq.impl.DSL.inline;
 import static org.jooq.impl.DSL.name;
@@ -23,7 +22,6 @@ import static org.jooq.impl.DSL.noCondition;
 import static org.jooq.impl.DSL.quotedName;
 import static org.jooq.impl.DSL.select;
 import static org.jooq.impl.DSL.table;
-import static org.jooq.impl.DSL.update;
 import static org.jooq.impl.DSL.with;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -207,7 +205,7 @@ public abstract class JdbcSqlGenerator implements SqlGenerator<TableDefinition> 
    * @param includeMetaColumn
    * @return
    */
-  LinkedHashMap<String, DataType<?>> getFinalTableMetaColumns(final boolean includeMetaColumn) {
+  protected LinkedHashMap<String, DataType<?>> getFinalTableMetaColumns(final boolean includeMetaColumn) {
     final LinkedHashMap<String, DataType<?>> metaColumns = new LinkedHashMap<>();
     metaColumns.put(COLUMN_NAME_AB_RAW_ID, SQLDataType.VARCHAR(36).nullable(false));
     metaColumns.put(COLUMN_NAME_AB_EXTRACTED_AT, getTimestampWithTimeZoneType().nullable(false));
@@ -245,7 +243,7 @@ public abstract class JdbcSqlGenerator implements SqlGenerator<TableDefinition> 
       }
     }
     if (minRawTimestamp.isPresent()) {
-      condition = condition.and(field(name(COLUMN_NAME_AB_EXTRACTED_AT)).gt(minRawTimestamp.get().toString()));
+      condition = condition.and(field(name(COLUMN_NAME_AB_EXTRACTED_AT)).gt(formatTimestampLiteral(minRawTimestamp.get())));
     }
     return condition;
   }
@@ -479,7 +477,7 @@ public abstract class JdbcSqlGenerator implements SqlGenerator<TableDefinition> 
     final DSLContext dsl = getDslContext();
     Condition extractedAtCondition = noCondition();
     if (minRawTimestamp.isPresent()) {
-      extractedAtCondition = extractedAtCondition.and(field(name(COLUMN_NAME_AB_EXTRACTED_AT)).gt(minRawTimestamp.get().toString()));
+      extractedAtCondition = extractedAtCondition.and(field(name(COLUMN_NAME_AB_EXTRACTED_AT)).gt(formatTimestampLiteral(minRawTimestamp.get())));
     }
     return dsl.update(table(quotedName(schemaName, tableName)))
         .set(field(quotedName(COLUMN_NAME_AB_LOADED_AT)), currentTimestamp())
@@ -511,6 +509,14 @@ public abstract class JdbcSqlGenerator implements SqlGenerator<TableDefinition> 
 
   protected Field<Timestamp> currentTimestamp() {
     return DSL.currentTimestamp();
+  }
+
+  /**
+   * Some destinations (mysql) can't handle timestamps in ISO8601 format with 'Z' suffix.
+   * This method allows subclasses to format timestamps according to destination-specific needs.
+   */
+  protected String formatTimestampLiteral(final Instant instant) {
+    return instant.toString();
   }
 
 }
