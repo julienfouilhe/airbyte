@@ -1277,6 +1277,13 @@ public abstract class BaseSqlGeneratorIntegrationTest<DialectTableDefinition> {
     final var v2RecordMap = v2RawRecords.stream().collect(Collectors.toMap(
         record -> record.get("_airbyte_raw_id").asText(),
         Function.identity()));
+    final int expectedRecordCount;
+    if (supportsSafeCast()) {
+      expectedRecordCount = 5;
+    } else {
+      // safe_cast_unsupported excludes one record with invalid data.
+      expectedRecordCount = 4;
+    }
     assertAll(
         () -> assertEquals(6, v1RawRecords.size()),
         () -> assertEquals(6, v2RawRecords.size()));
