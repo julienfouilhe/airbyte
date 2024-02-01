@@ -18,6 +18,7 @@ import io.airbyte.cdk.db.jdbc.JdbcUtils;
 import io.airbyte.cdk.integrations.source.relationaldb.state.StateGeneratorUtils;
 import io.airbyte.commons.json.Jsons;
 import io.airbyte.commons.util.AutoCloseableIterators;
+import io.airbyte.integrations.source.mssql.MsSQLTestDatabase.BaseImage;
 import io.airbyte.protocol.models.Field;
 import io.airbyte.protocol.models.JsonSchemaType;
 import io.airbyte.protocol.models.v0.AirbyteCatalog;
@@ -55,7 +56,7 @@ public class CdcStateCompressionTest {
   static private final int ADDED_COLUMNS = 1000;
 
   static private final MSSQLServerContainer<?> CONTAINER = new MsSQLContainerFactory().shared(
-      "mcr.microsoft.com/mssql/server:2022-latest");
+      BaseImage.MSSQL_2022);
 
   private MsSQLTestDatabase testdb;
 
@@ -66,8 +67,7 @@ public class CdcStateCompressionTest {
         .withConnectionProperty("encrypt", "false")
         .withConnectionProperty("databaseName", testdb.getDatabaseName())
         .initialized()
-        .withCdc()
-        .withWaitUntilAgentRunning();
+        .withCdc();
 
     // Create a test schema and a bunch of test tables with CDC enabled.
     // Insert one row in each table so that they're not empty.

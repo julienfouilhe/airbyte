@@ -15,7 +15,6 @@ import io.airbyte.cdk.integrations.base.ssh.SshTunnel;
 import io.airbyte.commons.features.EnvVariableFeatureFlags;
 import io.airbyte.commons.features.FeatureFlagsWrapper;
 import io.airbyte.integrations.source.mssql.MsSQLTestDatabase.BaseImage;
-import io.airbyte.integrations.source.mssql.MsSQLTestDatabase.ContainerModifier;
 import io.airbyte.protocol.models.v0.AirbyteConnectionStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -24,9 +23,8 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 @Execution(ExecutionMode.CONCURRENT)
 public class CloudDeploymentMssqlTest {
 
-  private MsSQLTestDatabase createTestDatabase(ContainerModifier... containerModifiers) {
-    final var testdb = MsSQLTestDatabase.in(BaseImage.MSSQL_2022, containerModifiers);
-    return testdb;
+  private MsSQLTestDatabase createTestDatabase() {
+    return MsSQLTestDatabase.in(BaseImage.MSSQL_2022);
   }
 
   private Source source() {

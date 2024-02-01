@@ -16,12 +16,12 @@ import io.airbyte.cdk.integrations.source.jdbc.AbstractJdbcSource;
 import io.airbyte.cdk.integrations.source.jdbc.test.JdbcStressTest;
 import io.airbyte.commons.json.Jsons;
 import io.airbyte.commons.string.Strings;
+import io.airbyte.integrations.source.mssql.MsSQLTestDatabase.BaseImage;
 import java.sql.JDBCType;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import javax.sql.DataSource;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -36,7 +36,7 @@ public class MssqlStressTest extends JdbcStressTest {
 
   @BeforeAll
   static void init() {
-    dbContainer = new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2019-latest").acceptLicense();
+    dbContainer = new MsSQLContainerFactory().shared(BaseImage.MSSQL_2022);
     dbContainer.start();
   }
 
@@ -74,11 +74,6 @@ public class MssqlStressTest extends JdbcStressTest {
     } finally {
       DataSourceFactory.close(dataSource);
     }
-  }
-
-  @AfterAll
-  public static void tearDown() {
-    dbContainer.close();
   }
 
   @Override

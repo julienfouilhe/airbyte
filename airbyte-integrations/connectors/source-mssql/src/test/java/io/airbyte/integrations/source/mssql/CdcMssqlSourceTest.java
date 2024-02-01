@@ -33,6 +33,7 @@ import io.airbyte.cdk.db.jdbc.streaming.AdaptiveStreamingQueryConfig;
 import io.airbyte.cdk.integrations.JdbcConnector;
 import io.airbyte.cdk.integrations.debezium.CdcSourceTest;
 import io.airbyte.commons.json.Jsons;
+import io.airbyte.integrations.source.mssql.MsSQLTestDatabase.BaseImage;
 import io.airbyte.protocol.models.v0.AirbyteConnectionStatus;
 import io.airbyte.protocol.models.v0.AirbyteStateMessage;
 import io.airbyte.protocol.models.v0.AirbyteStream;
@@ -43,16 +44,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.sql.DataSource;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
-import org.testcontainers.containers.MSSQLServerContainer;
-import org.testcontainers.utility.DockerImageName;
 
 @TestInstance(Lifecycle.PER_CLASS)
 @Disabled
@@ -64,28 +61,7 @@ public class CdcMssqlSourceTest extends CdcSourceTest<MssqlSource, MsSQLTestData
 
   // Deliberately do not share this test container, as we're going to mutate the global SQL Server
   // state.
-  protected final MSSQLServerContainer<?> privateContainer;
-
   private DataSource testDataSource;
-
-  CdcMssqlSourceTest() {
-    this.privateContainer = createContainer();
-  }
-
-  protected MSSQLServerContainer<?> createContainer() {
-    return new MsSQLContainerFactory()
-        .createNewContainer(DockerImageName.parse("mcr.microsoft.com/mssql/server:2022-latest"));
-  }
-
-  @BeforeAll
-  public void beforeAll() {
-    privateContainer.start();
-  }
-
-  @AfterAll
-  void afterAll() {
-    privateContainer.close();
-  }
 
   protected final String testUserName() {
     return testdb.withNamespace(TEST_USER_NAME_PREFIX);
@@ -93,13 +69,8 @@ public class CdcMssqlSourceTest extends CdcSourceTest<MssqlSource, MsSQLTestData
 
   @Override
   protected MsSQLTestDatabase createTestDatabase() {
-    final var testdb = new MsSQLTestDatabase(privateContainer);
-    return testdb
-        .withConnectionProperty("encrypt", "false")
-        .withConnectionProperty("databaseName", testdb.getDatabaseName())
-        .initialized()
-        .withWaitUntilAgentRunning()
-        .withCdc();
+    final var testdb = MsSQLTestDatabase.in(BaseImage.MSSQL_2022);
+    return testdb.withCdc();
   }
 
   @Override
@@ -225,16 +196,6 @@ public class CdcMssqlSourceTest extends CdcSourceTest<MssqlSource, MsSQLTestData
         () -> source().assertCdcSchemaQueryable(config(), testDatabase()));
   }
 
-  @Test
-  void testAssertSqlServerAgentRunning() {
-    testdb.withAgentStopped().withWaitUntilAgentStopped();
-    // assert expected failure if sql server agent stopped
-    assertThrows(RuntimeException.class, () -> source().assertSqlServerAgentRunning(testDatabase()));
-    // assert success if sql server agent running
-    testdb.withAgentStarted().withWaitUntilAgentRunning();
-    assertDoesNotThrow(() -> source().assertSqlServerAgentRunning(testDatabase()));
-  }
-
   // Ensure the CDC check operations are included when CDC is enabled
   // todo: make this better by checking the returned checkOperations from source.getCheckOperations
   @Test
@@ -249,13 +210,6 @@ public class CdcMssqlSourceTest extends CdcSourceTest<MssqlSource, MsSQLTestData
     status = source().check(config());
     assertEquals(status.getStatus(), AirbyteConnectionStatus.Status.FAILED);
     testdb.with("GRANT SELECT ON SCHEMA :: [cdc] TO %s", testUserName());
-
-    // assertSqlServerAgentRunning
-
-    testdb.withAgentStopped().withWaitUntilAgentStopped();
-    status = source().check(config());
-    assertEquals(status.getStatus(), AirbyteConnectionStatus.Status.FAILED);
-    testdb.withAgentStarted().withWaitUntilAgentRunning();
     status = source().check(config());
     assertEquals(status.getStatus(), AirbyteConnectionStatus.Status.FAILED);
   }

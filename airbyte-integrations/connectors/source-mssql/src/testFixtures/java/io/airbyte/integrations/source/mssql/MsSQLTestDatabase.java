@@ -9,14 +9,20 @@ import io.airbyte.cdk.db.jdbc.JdbcUtils;
 import io.airbyte.cdk.testutils.TestDatabase;
 import io.debezium.connector.sqlserver.Lsn;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jooq.SQLDialect;
+import org.jooq.exception.DataAccessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.MSSQLServerContainer;
@@ -29,11 +35,10 @@ public class MsSQLTestDatabase extends TestDatabase<MSSQLServerContainer<?>, MsS
 
   public static enum BaseImage {
 
-    MSSQL_2022("mcr.microsoft.com/mssql/server:2022-latest"),
-    MSSQL_2017("mcr.microsoft.com/mssql/server:2017-latest"),
+    MSSQL_2022("mcr.microsoft.com/mssql/server:2022-CU9-ubuntu-20.04"),
     ;
 
-    private final String reference;
+    final String reference;
 
     private BaseImage(final String reference) {
       this.reference = reference;
@@ -41,30 +46,41 @@ public class MsSQLTestDatabase extends TestDatabase<MSSQLServerContainer<?>, MsS
 
   }
 
-  public static enum ContainerModifier {
-
-    WITH_SSL_CERTIFICATES("withSslCertificates");
-
-    private final String methodName;
-
-    private ContainerModifier(final String methodName) {
-      this.methodName = methodName;
-    }
-
-  }
-
-  static public MsSQLTestDatabase in(final BaseImage imageName, final ContainerModifier... methods) {
-    final String[] methodNames = Stream.of(methods).map(im -> im.methodName).toList().toArray(new String[0]);
-    final var container = new MsSQLContainerFactory().shared(imageName.reference, methodNames);
+  static public MsSQLTestDatabase in(final BaseImage imageName) {
+    final var container = new MsSQLContainerFactory().shared(imageName.reference);
     final var testdb = new MsSQLTestDatabase(container);
-    testdb.withConnectionProperty("encrypt", "false")
+    return testdb.withConnectionProperty("encrypt", "false")
         .withConnectionProperty("databaseName", testdb.getDatabaseName())
+        .withConnectionProperty("trustServerCertificate", "true")
         .initialized();
-    return testdb.withWaitUntilAgentRunning();
   }
 
   public MsSQLTestDatabase(final MSSQLServerContainer<?> container) {
     super(container);
+    withConnectionProperty("encrypt", "false");
+    withConnectionProperty("trustServerCertificate", "true");
+  }
+
+  protected void execSQL(Stream<String> sql) {
+    try {
+      super.execSQL(sql);
+    } catch (DataAccessException e) {
+      if (e.getMessage().contains("Cannot perform this operation while SQLServerAgent is starting")) {
+        String agentLogs = new String(getContainer().copyFileFromContainer(
+            "/var/opt/mssql/log/sqlagent.out",
+            InputStream::readAllBytes), StandardCharsets.UTF_8);
+        String agentStatus;
+        try (Connection connection = getContainer().createConnection(""); Statement statement = connection.createStatement()) {
+          Thread.sleep(100L);
+          ResultSet rs = statement.executeQuery("EXEC master.dbo.xp_servicecontrol 'QueryState', N'SQLServerAGENT';");
+          rs.next();
+          agentStatus = rs.getString(1);
+        } catch (Exception e2) {
+          throw new RuntimeException("Error when checking agent status. Previous exception was " + e, e2);
+        }
+        throw new RuntimeException("agentStatus = " + agentStatus + "\nagentLogs = \n" + agentLogs, e);
+      }
+    }
   }
 
   public MsSQLTestDatabase withCdc() {
@@ -75,62 +91,21 @@ public class MsSQLTestDatabase extends TestDatabase<MSSQLServerContainer<?>, MsS
     return with("EXEC sys.sp_cdc_disable_db;");
   }
 
-  public MsSQLTestDatabase withAgentStarted() {
-    return with("EXEC master.dbo.xp_servicecontrol N'START', N'SQLServerAGENT';");
-  }
-
-  public MsSQLTestDatabase withAgentStopped() {
-    return with("EXEC master.dbo.xp_servicecontrol N'STOP', N'SQLServerAGENT';");
-  }
-
-  public MsSQLTestDatabase withWaitUntilAgentRunning() {
-    waitForAgentState(true);
-    return self();
-  }
-
-  public MsSQLTestDatabase withWaitUntilAgentStopped() {
-    waitForAgentState(false);
-    return self();
-  }
-
   public MsSQLTestDatabase withShortenedCapturePollingInterval() {
     return with("EXEC sys.sp_cdc_change_job @job_type = 'capture', @pollinginterval = %d;",
         MssqlCdcTargetPosition.MAX_LSN_QUERY_DELAY_TEST.toSeconds());
   }
 
-  private void waitForAgentState(final boolean running) {
-    final String expectedValue = running ? "Running." : "Stopped.";
-    LOGGER.debug("Waiting for SQLServerAgent state to change to '{}'.", expectedValue);
-    for (int i = 0; i < MAX_RETRIES; i++) {
-      try {
-        final var r = query(ctx -> ctx.fetch("EXEC master.dbo.xp_servicecontrol 'QueryState', N'SQLServerAGENT';").get(0));
-        if (expectedValue.equalsIgnoreCase(r.getValue(0).toString())) {
-          LOGGER.debug("SQLServerAgent state is '{}', as expected.", expectedValue);
-          return;
-        }
-        LOGGER.debug("Retrying, SQLServerAgent state {} does not match expected '{}'.", r, expectedValue);
-      } catch (final SQLException e) {
-        LOGGER.debug("Retrying agent state query after catching exception {}.", e.getMessage());
-      }
-      try {
-        Thread.sleep(1_000); // Wait one second between retries.
-      } catch (final InterruptedException e) {
-        throw new RuntimeException(e);
-      }
-    }
-    throw new RuntimeException("Exhausted retry attempts while polling for agent state");
-  }
-
   public MsSQLTestDatabase withWaitUntilMaxLsnAvailable() {
-    LOGGER.debug("Waiting for max LSN to become available for database {}.", getDatabaseName());
+    LOGGER.info("Waiting for max LSN to become available for database {}.", getDatabaseName());
     for (int i = 0; i < MAX_RETRIES; i++) {
       try {
         final var maxLSN = query(ctx -> ctx.fetch("SELECT sys.fn_cdc_get_max_lsn();").get(0).get(0, byte[].class));
         if (maxLSN != null) {
-          LOGGER.debug("Max LSN available for database {}: {}", getDatabaseName(), Lsn.valueOf(maxLSN));
+          LOGGER.info("Max LSN available for database {}: {}", getDatabaseName(), Lsn.valueOf(maxLSN));
           return self();
         }
-        LOGGER.debug("Retrying, max LSN still not available for database {}.", getDatabaseName());
+        LOGGER.info("Retrying, max LSN still not available for database {}.", getDatabaseName());
       } catch (final SQLException e) {
         LOGGER.warn("Retrying max LSN query after catching exception {}", e.getMessage());
       }
@@ -281,6 +256,7 @@ public class MsSQLTestDatabase extends TestDatabase<MSSQLServerContainer<?>, MsS
       if (hostnameInCertificate != null) {
         return withSsl(Map.of("ssl_method", "encrypted_verify_certificate",
             "certificate", certificate,
+            "trustServerCertificate", "false",
             "hostNameInCertificate", hostnameInCertificate));
       } else {
         return withSsl(Map.of("ssl_method", "encrypted_verify_certificate",
