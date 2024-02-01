@@ -1,25 +1,37 @@
-/*
+ /*
  * Copyright (c) 2023 Airbyte, Inc., all rights reserved.
  */
 
 package io.airbyte.integrations.destination.mysql.typing_deduping;
 
+import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT;
+import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_ID;
+import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_LOADED_AT;
+import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_RAW_ID;
+import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_DATA;
+import static io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_EMITTED_AT;
+import static io.airbyte.cdk.integrations.base.JavaBaseConstants.LEGACY_RAW_TABLE_COLUMNS;
+import static io.airbyte.integrations.destination.mysql.typing_deduping.MysqlSqlGenerator.TIMESTAMP_FORMATTER;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.airbyte.cdk.db.factory.DataSourceFactory;
 import io.airbyte.cdk.db.jdbc.DefaultJdbcDatabase;
 import io.airbyte.cdk.db.jdbc.JdbcDatabase;
 import io.airbyte.cdk.db.jdbc.JdbcSourceOperations;
 import io.airbyte.cdk.integrations.destination.jdbc.TableDefinition;
+import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcDestinationHandler;
 import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcSqlGenerator;
 import io.airbyte.cdk.integrations.standardtest.destination.typing_deduping.JdbcSqlGeneratorIntegrationTest;
 import io.airbyte.commons.json.Jsons;
 import io.airbyte.integrations.base.destination.typing_deduping.DestinationHandler;
+import io.airbyte.integrations.base.destination.typing_deduping.StreamId;
 import io.airbyte.integrations.destination.mysql.MySQLDestination;
 import io.airbyte.integrations.destination.mysql.MySQLDestinationAcceptanceTest;
 import io.airbyte.integrations.destination.mysql.MySQLNameTransformer;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.OffsetDateTime;
+import java.util.List;
 import javax.sql.DataSource;
 import org.jooq.DataType;
 import org.jooq.Field;
@@ -27,6 +39,7 @@ import org.jooq.SQLDialect;
 import org.jooq.conf.ParamType;
 import org.jooq.impl.DSL;
 import org.jooq.impl.DefaultDataType;
+import org.jooq.impl.SQLDataType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -88,7 +101,70 @@ public class MysqlSqlGeneratorIntegrationTest extends JdbcSqlGeneratorIntegratio
     // All of our queries pass a value into the "schemaName" parameter, which mysql treats as being
     // the database name.
     // So we pass null for the databaseName parameter here, because we don't use the 'test' database at all.
-    return new MysqlDestinationHandler(null, database);
+    return new JdbcDestinationHandler(null, database, SQLDialect.MYSQL);
+  }
+
+  @Override
+  protected void insertRawTableRecords(final StreamId streamId, final List<JsonNode> records) throws Exception {
+    reformatMetaColumnTimestamps(records);
+    super.insertRawTableRecords(streamId, records);
+  }
+
+  @Override
+  protected void insertFinalTableRecords(final boolean includeCdcDeletedAt,
+                                         final StreamId streamId,
+                                         final String suffix,
+                                         final List<JsonNode> records)
+      throws Exception {
+    reformatMetaColumnTimestamps(records);
+    super.insertFinalTableRecords(includeCdcDeletedAt, streamId, suffix, records);
+  }
+
+  @Override
+  protected void insertV1RawTableRecords(final StreamId streamId, final List<JsonNode> records) throws Exception {
+    reformatMetaColumnTimestamps(records);
+    super.insertV1RawTableRecords(streamId, records);
+  }
+
+  private static void reformatMetaColumnTimestamps(final List<JsonNode> records) {
+    // We use mysql's TIMESTAMP(6) type for extracted_at+loaded_at.
+    // Unfortunately, mysql doesn't allow you to use the 'Z' suffix for UTC timestamps.
+    // Convert those to '+00:00' here.
+    for (final JsonNode record : records) {
+      reformatTimestampIfPresent(record, COLUMN_NAME_AB_EXTRACTED_AT);
+      reformatTimestampIfPresent(record, COLUMN_NAME_EMITTED_AT);
+      reformatTimestampIfPresent(record, COLUMN_NAME_AB_LOADED_AT);
+    }
+  }
+
+  private static void reformatTimestampIfPresent(final JsonNode record, final String columnNameAbExtractedAt) {
+    if (record.has(columnNameAbExtractedAt)) {
+      final OffsetDateTime extractedAt = OffsetDateTime.parse(record.get(columnNameAbExtractedAt).asText());
+      final String reformattedExtractedAt = TIMESTAMP_FORMATTER.format(extractedAt);
+      ((ObjectNode) record).put(columnNameAbExtractedAt, reformattedExtractedAt);
+    }
+  }
+
+  @Override
+  protected void createRawTable(final StreamId streamId) throws Exception {
+    getDatabase().execute(getDslContext().createTable(DSL.name(streamId.rawNamespace(), streamId.rawName()))
+        .column(COLUMN_NAME_AB_RAW_ID, SQLDataType.VARCHAR(36).nullable(false))
+        // we use VARCHAR for timestamp values, but TIMESTAMP(6) for extracted+loaded_at.
+        // because legacy normalization did that. :shrug:
+        .column(COLUMN_NAME_AB_EXTRACTED_AT, SQLDataType.TIMESTAMP(6).nullable(false))
+        .column(COLUMN_NAME_AB_LOADED_AT, SQLDataType.TIMESTAMP(6))
+        .column(COLUMN_NAME_DATA, getStructType().nullable(false))
+        .getSQL(ParamType.INLINED));
+  }
+
+  @Override
+  protected void createV1RawTable(final StreamId v1RawTable) throws Exception {
+    getDatabase().execute(getDslContext().createTable(DSL.name(v1RawTable.rawNamespace(), v1RawTable.rawName()))
+        .column(COLUMN_NAME_AB_ID, SQLDataType.VARCHAR(36).nullable(false))
+        // similar to createRawTable - this data type is timestmap, not varchar
+        .column(COLUMN_NAME_EMITTED_AT, SQLDataType.TIMESTAMP(6).nullable(false))
+        .column(COLUMN_NAME_DATA, getStructType().nullable(false))
+        .getSQL(ParamType.INLINED));
   }
 
   @Test

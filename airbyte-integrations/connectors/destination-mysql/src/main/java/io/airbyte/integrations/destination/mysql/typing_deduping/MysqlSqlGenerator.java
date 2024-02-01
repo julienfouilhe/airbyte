@@ -21,7 +21,6 @@ import static org.jooq.impl.DSL.quotedName;
 import static org.jooq.impl.DSL.rowNumber;
 import static org.jooq.impl.DSL.select;
 import static org.jooq.impl.DSL.table;
-import static org.jooq.impl.DSL.trueCondition;
 import static org.jooq.impl.DSL.val;
 
 import com.google.common.collect.ImmutableMap;
@@ -37,13 +36,16 @@ import io.airbyte.integrations.base.destination.typing_deduping.Sql;
 import io.airbyte.integrations.base.destination.typing_deduping.StreamConfig;
 import io.airbyte.integrations.base.destination.typing_deduping.StreamId;
 import io.airbyte.integrations.base.destination.typing_deduping.Struct;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import javax.annotation.concurrent.Immutable;
 import org.apache.commons.lang3.NotImplementedException;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
@@ -60,6 +62,11 @@ import org.jooq.impl.SQLDataType;
 public class MysqlSqlGenerator extends JdbcSqlGenerator {
 
   public static final DefaultDataType<Object> JSON_TYPE = new DefaultDataType<>(null, Object.class, "json");
+
+  public static final DateTimeFormatter TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
+      .append(DateTimeFormatter.ISO_LOCAL_DATE_TIME) // 2024-01-23T12:34:56
+      .appendOffset("+HH:MM", "+00:00") // produce +00:00 instead of Z
+      .toFormatter();
 
   private static final Map<String, String> MYSQL_TYPE_NAME_TO_JDBC_TYPE = ImmutableMap.of(
       "text", "clob",
@@ -196,6 +203,17 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
   }
 
   @Override
+  protected LinkedHashMap<String, DataType<?>> getFinalTableMetaColumns(final boolean includeMetaColumn) {
+    final LinkedHashMap<String, DataType<?>> metaColumns = new LinkedHashMap<>();
+    metaColumns.put(COLUMN_NAME_AB_RAW_ID, SQLDataType.VARCHAR(36).nullable(false));
+    // Override this column to be a TIMESTAMP instead of VARCHAR
+    metaColumns.put(COLUMN_NAME_AB_EXTRACTED_AT, SQLDataType.TIMESTAMP(6).nullable(false));
+    if (includeMetaColumn)
+      metaColumns.put(COLUMN_NAME_AB_META, getStructType().nullable(false));
+    return metaColumns;
+  }
+
+  @Override
   protected Condition cdcDeletedAtNotNullCondition() {
     return field(name(COLUMN_NAME_AB_LOADED_AT)).isNotNull()
         .and(jsonTypeof(extractColumnAsJson(cdcDeletedAtColumn)).ne("NULL"));
@@ -248,8 +266,7 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
 
     final boolean sameColumns = actualColumns.equals(intendedColumns)
         && "VARCHAR".equals(existingTable.columns().get(JavaBaseConstants.COLUMN_NAME_AB_RAW_ID).type())
-        // TODO this should be TIMESTAMP(6) to match existing normalization behavior
-        && "VARCHAR".equals(existingTable.columns().get(JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT).type())
+        && "TIMESTAMP".equals(existingTable.columns().get(JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT).type())
         && "JSON".equals(existingTable.columns().get(JavaBaseConstants.COLUMN_NAME_AB_META).type());
 
     return sameColumns;
@@ -276,6 +293,11 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
   @Override
   protected String beginTransaction() {
     return "START TRANSACTION";
+  }
+
+  @Override
+  protected String formatTimestampLiteral(final Instant instant) {
+    return TIMESTAMP_FORMATTER.format(instant.atOffset(ZoneOffset.UTC));
   }
 
   private Field<Object> extractColumnAsJson(final ColumnId column) {
