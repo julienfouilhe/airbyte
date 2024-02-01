@@ -1285,8 +1285,8 @@ public abstract class BaseSqlGeneratorIntegrationTest<DialectTableDefinition> {
       expectedRecordCount = 4;
     }
     assertAll(
-        () -> assertEquals(6, v1RawRecords.size()),
-        () -> assertEquals(6, v2RawRecords.size()));
+        () -> assertEquals(expectedRecordCount, v1RawRecords.size()),
+        () -> assertEquals(expectedRecordCount, v2RawRecords.size()));
     v1RawRecords.forEach(v1Record -> {
       final var v1id = v1Record.get("_airbyte_ab_id").asText();
       assertAll(
