@@ -161,4 +161,8 @@ public class SnowflakeDestinationHandler implements DestinationHandler<Snowflake
     return input.equalsIgnoreCase("yes");
   }
 
+  @Override
+  public LinkedHashMap<String, SnowflakeTableDefinition> findExistingFinalTables(List<StreamId> streamIds) throws Exception {
+    return null;
+  }
 }
