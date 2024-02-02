@@ -58,14 +58,14 @@ class AirbyteJavaConnectorExtension {
             def dep = { useLocalCdk ? project.project(projectName(it)) : jarName(it) }
             def testFixturesDep = { useLocalCdk ? testFixtures(project.project(projectName(it))) : "${jarName(it)}:test-fixtures" }
             if (useLocalCdk || !cdkVersionRequired.matches("^0\\.[0-9]\\..*|^0\\.1[0-6]\\..*")) {
-                // v0.11+ module structure
+                // v0.17+ module structure
                 implementation dep("dependencies")
                 testImplementation dep("dependencies")
                 testFixturesImplementation dep("dependencies")
                 integrationTestJavaImplementation dep("dependencies")
                 integrationTestJavaImplementation testFixturesDep("dependencies")
             } else {
-                // pre-v0.11 module structure
+                // pre-v0.17 module structure
                 implementation(platform("com.fasterxml.jackson:jackson-bom:2.13.0"))
                 implementation(platform("org.glassfish.jersey:jersey-bom:2.31"))
 
