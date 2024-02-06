@@ -60,7 +60,7 @@ class DefaultFileBasedStream(AbstractFileBasedStream, IncrementalMixin):
         return self._cursor
 
     @cursor.setter
-    def cursor(self, value: AbstractFileBasedCursor):
+    def cursor(self, value: AbstractFileBasedCursor) -> None:
         if self._cursor is not None:
             raise RuntimeError(f"Cursor for stream {self.name} is already set. This is unexpected. Please contact Support.")
         self._cursor = value

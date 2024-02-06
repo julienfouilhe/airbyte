@@ -323,6 +323,4 @@ class FileBasedStreamPartitionGenerator(PartitionGenerator):
                         )
                     )
         self._cursor.set_pending_partitions(pending_partitions)
-        if not pending_partitions:
-            self._cursor.emit_state_message()
         yield from pending_partitions

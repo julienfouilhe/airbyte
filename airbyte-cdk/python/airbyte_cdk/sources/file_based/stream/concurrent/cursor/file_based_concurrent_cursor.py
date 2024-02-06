@@ -50,14 +50,9 @@ class FileBasedConcurrentCursor(AbstractConcurrentFileBasedCursor):
         self._time_window_if_history_is_full = timedelta(
             days=stream_config.days_to_sync_if_history_is_full or self.DEFAULT_DAYS_TO_SYNC_IF_HISTORY_IS_FULL
         )
-        # These should be set before the sync starts
         self._state_lock = RLock()
         self._pending_files_lock = RLock()
         self._pending_files: Optional[Dict[str, "FileBasedStreamPartition"]] = None
-        self._file_to_datetime_history = None
-        self._prev_cursor_value = None
-        self._sync_start = None
-
         self._file_to_datetime_history = stream_state.get("history", {}) if stream_state else {}
         self._prev_cursor_value = self._compute_prev_sync_cursor(stream_state)
         self._sync_start = self._compute_start_time()
@@ -130,7 +125,7 @@ class FileBasedConcurrentCursor(AbstractConcurrentFileBasedCursor):
                             type=Type.LOG,
                             log=AirbyteLogMessage(
                                 level=Level.WARN,
-                                message=f"The file {file.uri} was not found in the list of pending files. This is unexpected.",
+                                message=f"The file {file.uri} was not found in the list of pending files. This is unexpected. Please contact Support",
                             ),
                         )
                     )
