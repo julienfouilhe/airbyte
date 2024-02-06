@@ -62,7 +62,7 @@ class FileBasedSource(ConcurrentSourceAdapter, ABC):
         spec_class: Type[AbstractFileBasedSpec],
         catalog: Optional[ConfiguredAirbyteCatalog],
         config: Optional[Mapping[str, Any]],
-        state: Optional[TState],
+        state: Optional[MutableMapping[str, Any]],
         availability_strategy: Optional[AbstractFileBasedAvailabilityStrategy] = None,
         discovery_policy: AbstractDiscoveryPolicy = DefaultDiscoveryPolicy(),
         parsers: Mapping[Type[Any], FileTypeParser] = default_parsers,
@@ -157,7 +157,7 @@ class FileBasedSource(ConcurrentSourceAdapter, ABC):
         try:
             parsed_config = self._get_parsed_config(config)
             self.stream_reader.config = parsed_config
-            streams: List[AbstractFileBasedStream] = []
+            streams: List[Stream] = []
             for stream_config in parsed_config.streams:
                 # Like state_manager, `catalog_stream` may be None during `check`
                 catalog_stream = self._get_stream_from_catalog(stream_config)
@@ -170,7 +170,7 @@ class FileBasedSource(ConcurrentSourceAdapter, ABC):
                     cursor = FileBasedNoopCursor(stream_config)
                     stream = FileBasedStreamFacade.create_from_stream(self._make_default_stream(stream_config, cursor), self, self.logger, stream_state, cursor)
 
-                elif sync_mode == SyncMode.incremental and issubclass(self.cursor_cls, AbstractConcurrentFileBasedCursor):
+                elif sync_mode == SyncMode.incremental and issubclass(self.cursor_cls, AbstractConcurrentFileBasedCursor) and hasattr(self, "_concurrency_level") and self._concurrency_level is not None:
                     assert state_manager is not None, f"No ConnectorStateManager was created, but it is required for incremental syncs. This is unexpected. Please contact Support."
 
                     cursor = self.cursor_cls(

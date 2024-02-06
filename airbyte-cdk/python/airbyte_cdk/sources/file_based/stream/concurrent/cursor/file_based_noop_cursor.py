@@ -4,13 +4,14 @@
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Iterable, MutableMapping
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, MutableMapping
 
 from airbyte_cdk.sources.file_based.config.file_based_stream_config import FileBasedStreamConfig
 from airbyte_cdk.sources.file_based.remote_file import RemoteFile
 from airbyte_cdk.sources.file_based.stream.concurrent.cursor.abstract_concurrent_file_based_cursor import AbstractConcurrentFileBasedCursor
 from airbyte_cdk.sources.file_based.types import StreamState
 from airbyte_cdk.sources.streams.concurrent.partitions.record import Record
+from airbyte_cdk.sources.streams.concurrent.partitions.partition import Partition
 
 if TYPE_CHECKING:
     from airbyte_cdk.sources.file_based.stream.concurrent.adapters import FileBasedStreamPartition
@@ -27,10 +28,10 @@ class FileBasedNoopCursor(AbstractConcurrentFileBasedCursor):
     def observe(self, record: Record) -> None:
         pass
 
-    def close_partition(self, partition: "FileBasedStreamPartition") -> None:
+    def close_partition(self, partition: Partition) -> None:
         pass
 
-    def set_pending_partitions(self, partitions: Dict[str, "FileBasedStreamPartition"]) -> None:
+    def set_pending_partitions(self, partitions: List["FileBasedStreamPartition"]) -> None:
         pass
 
     def add_file(self, file: RemoteFile) -> None:

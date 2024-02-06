@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from threading import RLock
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, MutableMapping, Optional, Tuple
 
+from airbyte_cdk.sources.streams.concurrent.partitions.partition import Partition
 from airbyte_cdk.models import AirbyteLogMessage, AirbyteMessage, Level, Type
 from airbyte_cdk.sources.connector_state_manager import ConnectorStateManager
 from airbyte_cdk.sources.file_based.config.file_based_stream_config import FileBasedStreamConfig
@@ -41,6 +42,7 @@ class FileBasedConcurrentCursor(AbstractConcurrentFileBasedCursor):
         connector_state_manager: ConnectorStateManager,
         cursor_field: CursorField,
     ) -> None:
+        super().__init__()
         self._stream_name = stream_name
         self._stream_namespace = stream_namespace
         self._state = stream_state
@@ -52,7 +54,7 @@ class FileBasedConcurrentCursor(AbstractConcurrentFileBasedCursor):
         )
         self._state_lock = RLock()
         self._pending_files_lock = RLock()
-        self._pending_files: Optional[Dict[str, "FileBasedStreamPartition"]] = None
+        self._pending_files: Optional[Dict[str, RemoteFile]] = None
         self._file_to_datetime_history = stream_state.get("history", {}) if stream_state else {}
         self._prev_cursor_value = self._compute_prev_sync_cursor(stream_state)
         self._sync_start = self._compute_start_time()
@@ -64,7 +66,7 @@ class FileBasedConcurrentCursor(AbstractConcurrentFileBasedCursor):
     def observe(self, record: Record) -> None:
         pass
 
-    def close_partition(self, partition: "FileBasedStreamPartition") -> None:
+    def close_partition(self, partition: Partition) -> None:
         with self._pending_files_lock:
             if self._pending_files is None:
                 raise RuntimeError("Expected pending partitions to be set but it was not. This is unexpected. Please contact Support.")
@@ -74,6 +76,8 @@ class FileBasedConcurrentCursor(AbstractConcurrentFileBasedCursor):
             self._pending_files = {}
             for partition in partitions:
                 _slice = partition.to_slice()
+                if _slice is None:
+                    continue
                 for file in _slice["files"]:
                     if file.uri in self._pending_files.keys():
                         raise RuntimeError(f"Already found file {_slice} in pending files. This is unexpected. Please contact Support.")
@@ -117,6 +121,8 @@ class FileBasedConcurrentCursor(AbstractConcurrentFileBasedCursor):
         Add a file to the cursor. This method is called when a file is processed by the stream.
         :param file: The file to add
         """
+        if self._pending_files is None:
+            raise RuntimeError("Expected pending partitions to be set but it was not. This is unexpected. Please contact Support.")
         with self._pending_files_lock:
             with self._state_lock:
                 if file.uri not in self._pending_files:
@@ -172,7 +178,7 @@ class FileBasedConcurrentCursor(AbstractConcurrentFileBasedCursor):
                 else:
                     return f"{self.zero_value.strftime(self.DATE_TIME_FORMAT)}_"
 
-    def _compute_earliest_pending_file(self) -> Optional["FileBasedStreamPartition"]:
+    def _compute_earliest_pending_file(self) -> Optional[RemoteFile]:
         if self._pending_files:
             return min(self._pending_files.values(), key=lambda x: x.last_modified)
         else:

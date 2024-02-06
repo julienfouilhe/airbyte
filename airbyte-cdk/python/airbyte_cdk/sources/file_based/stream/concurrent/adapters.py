@@ -52,7 +52,7 @@ class FileBasedStreamFacade(AbstractStreamFacade[DefaultStream], AbstractFileBas
         source: AbstractSource,
         logger: logging.Logger,
         state: Optional[MutableMapping[str, Any]],
-        cursor: AbstractFileBasedCursor,
+        cursor: "AbstractConcurrentFileBasedCursor",
     ) -> "FileBasedStreamFacade":
         """
         Create a ConcurrentStream from a FileBasedStream object.
