@@ -31,6 +31,7 @@ class FileBasedConcurrentCursor(AbstractConcurrentFileBasedCursor):
     DEFAULT_MAX_HISTORY_SIZE = 10_000
     DATE_TIME_FORMAT = DefaultFileBasedCursor.DATE_TIME_FORMAT
     zero_value = datetime.min
+    zero_cursor_value = f"0001-01-01T00:00:00.000000Z_{_NULL_FILE}"
 
     def __init__(
         self,
@@ -86,7 +87,7 @@ class FileBasedConcurrentCursor(AbstractConcurrentFileBasedCursor):
     def _compute_prev_sync_cursor(self, value: Optional[StreamState]) -> Tuple[datetime, str]:
         if not value:
             return self.zero_value, ""
-        prev_cursor_str = value.get(self._cursor_field.cursor_field_key) or self._zero_cursor_value()
+        prev_cursor_str = value.get(self._cursor_field.cursor_field_key) or self.zero_cursor_value
         # So if we see a cursor greater than the earliest file, it means that we have likely synced all files.
         # However, we take the earliest file as the cursor value for the purpose of checking which files to
         # sync, in case new files have been uploaded in the meantime.
@@ -96,17 +97,14 @@ class FileBasedConcurrentCursor(AbstractConcurrentFileBasedCursor):
         # files have already been uploaded. If that's the case, they'll be in history and we'll skip
         # re-uploading them.
         earliest_file_cursor_value = self._get_cursor_key_from_file(self._compute_earliest_file_in_history())
-        cursor = min(prev_cursor_str, earliest_file_cursor_value)
-        cursor_dt, cursor_uri = cursor.split("_", 1)
+        cursor_str = min(prev_cursor_str, earliest_file_cursor_value)
+        cursor_dt, cursor_uri = cursor_str.split("_", 1)
         return datetime.strptime(cursor_dt, self.DATE_TIME_FORMAT), cursor_uri
 
     def _get_cursor_key_from_file(self, file: Optional[RemoteFile]) -> str:
         if file:
             return f"{datetime.strftime(file.last_modified, self.DATE_TIME_FORMAT)}_{file.uri}"
-        return self._zero_cursor_value()
-
-    def _zero_cursor_value(self) -> str:
-        return f"{self.zero_value.strftime(self.DATE_TIME_FORMAT)}_{_NULL_FILE}"
+        return self.zero_cursor_value
 
     def _compute_earliest_file_in_history(self) -> Optional[RemoteFile]:
         with self._state_lock:
