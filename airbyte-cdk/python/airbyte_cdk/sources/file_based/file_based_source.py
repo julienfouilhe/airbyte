@@ -160,17 +160,30 @@ class FileBasedSource(ConcurrentSourceAdapter, ABC):
             for stream_config in parsed_config.streams:
                 # Like state_manager, `catalog_stream` may be None during `check`
                 catalog_stream = self._get_stream_from_catalog(stream_config)
-                stream_state = state_manager.get_stream_state(catalog_stream.name, catalog_stream.namespace) if (state_manager and catalog_stream) else None
+                stream_state = (
+                    state_manager.get_stream_state(catalog_stream.name, catalog_stream.namespace)
+                    if (state_manager and catalog_stream)
+                    else None
+                )
                 self._validate_input_schema(stream_config)
 
                 sync_mode = self._get_sync_mode_from_catalog(stream_config.name)
 
                 if sync_mode == SyncMode.full_refresh and hasattr(self, "_concurrency_level") and self._concurrency_level is not None:
                     cursor = FileBasedNoopCursor(stream_config)
-                    stream = FileBasedStreamFacade.create_from_stream(self._make_default_stream(stream_config, cursor), self, self.logger, stream_state, cursor)
+                    stream = FileBasedStreamFacade.create_from_stream(
+                        self._make_default_stream(stream_config, cursor), self, self.logger, stream_state, cursor
+                    )
 
-                elif sync_mode == SyncMode.incremental and issubclass(self.cursor_cls, AbstractConcurrentFileBasedCursor) and hasattr(self, "_concurrency_level") and self._concurrency_level is not None:
-                    assert state_manager is not None, "No ConnectorStateManager was created, but it is required for incremental syncs. This is unexpected. Please contact Support."
+                elif (
+                    sync_mode == SyncMode.incremental
+                    and issubclass(self.cursor_cls, AbstractConcurrentFileBasedCursor)
+                    and hasattr(self, "_concurrency_level")
+                    and self._concurrency_level is not None
+                ):
+                    assert (
+                        state_manager is not None
+                    ), "No ConnectorStateManager was created, but it is required for incremental syncs. This is unexpected. Please contact Support."
 
                     cursor = self.cursor_cls(
                         stream_config,
@@ -181,7 +194,9 @@ class FileBasedSource(ConcurrentSourceAdapter, ABC):
                         state_manager,
                         CursorField(DefaultFileBasedStream.ab_last_mod_col),
                     )
-                    stream = FileBasedStreamFacade.create_from_stream(self._make_default_stream(stream_config, cursor), self, self.logger, stream_state, cursor)
+                    stream = FileBasedStreamFacade.create_from_stream(
+                        self._make_default_stream(stream_config, cursor), self, self.logger, stream_state, cursor
+                    )
                 else:
                     cursor = self.cursor_cls(stream_config)
                     stream = self._make_default_stream(stream_config, cursor)
@@ -192,7 +207,9 @@ class FileBasedSource(ConcurrentSourceAdapter, ABC):
         except ValidationError as exc:
             raise ConfigValidationError(FileBasedSourceError.CONFIG_VALIDATION_ERROR) from exc
 
-    def _make_default_stream(self, stream_config: FileBasedStreamConfig, cursor: Optional[AbstractFileBasedCursor]) -> AbstractFileBasedStream:
+    def _make_default_stream(
+        self, stream_config: FileBasedStreamConfig, cursor: Optional[AbstractFileBasedCursor]
+    ) -> AbstractFileBasedStream:
         return DefaultFileBasedStream(
             config=stream_config,
             catalog_schema=self.stream_schemas.get(stream_config.name),

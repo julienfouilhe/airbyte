@@ -2,8 +2,8 @@
 # Copyright (c) 2023 Airbyte, Inc., all rights reserved.
 #
 
-from airbyte_cdk.test.state_builder import StateBuilder
 from airbyte_cdk.sources.file_based.stream.cursor import DefaultFileBasedCursor
+from airbyte_cdk.test.state_builder import StateBuilder
 from unit_tests.sources.file_based.helpers import LowHistoryLimitCursor
 from unit_tests.sources.file_based.scenarios.file_based_source_builder import FileBasedSourceBuilder
 from unit_tests.sources.file_based.scenarios.scenario_builder import IncrementalScenarioConfig, TestScenarioBuilder

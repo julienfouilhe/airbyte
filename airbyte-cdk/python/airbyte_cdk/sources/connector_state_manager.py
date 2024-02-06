@@ -5,7 +5,15 @@
 import copy
 from typing import Any, List, Mapping, MutableMapping, Optional, Tuple, Union
 
-from airbyte_cdk.models import AirbyteMessage, AirbyteStateBlob, AirbyteStateMessage, AirbyteStateType, AirbyteStream, AirbyteStreamState, StreamDescriptor
+from airbyte_cdk.models import (
+    AirbyteMessage,
+    AirbyteStateBlob,
+    AirbyteStateMessage,
+    AirbyteStateType,
+    AirbyteStream,
+    AirbyteStreamState,
+    StreamDescriptor,
+)
 from airbyte_cdk.models import Type as MessageType
 from airbyte_cdk.sources.streams import Stream
 from pydantic import Extra
@@ -29,7 +37,9 @@ class ConnectorStateManager:
     """
 
     def __init__(
-        self, stream_instance_map: Mapping[str, AirbyteStream], state: Optional[Union[List[AirbyteStateMessage], MutableMapping[str, Any]]] = None
+        self,
+        stream_instance_map: Mapping[str, AirbyteStream],
+        state: Optional[Union[List[AirbyteStateMessage], MutableMapping[str, Any]]] = None,
     ):
         shared_state, per_stream_states = self._extract_from_state_message(state, stream_instance_map)
 

@@ -7,7 +7,13 @@ from typing import List
 
 import pytest
 from airbyte_cdk.models import (
-    AirbyteMessage, AirbyteStateBlob, AirbyteStateMessage, AirbyteStateType, AirbyteStream, AirbyteStreamState, StreamDescriptor,
+    AirbyteMessage,
+    AirbyteStateBlob,
+    AirbyteStateMessage,
+    AirbyteStateType,
+    AirbyteStream,
+    AirbyteStreamState,
+    StreamDescriptor,
     SyncMode,
 )
 from airbyte_cdk.models import Type as MessageType

@@ -5,7 +5,7 @@
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, List, Iterable, MutableMapping
+from typing import TYPE_CHECKING, Any, Iterable, List, MutableMapping
 
 from airbyte_cdk.sources.file_based.remote_file import RemoteFile
 from airbyte_cdk.sources.file_based.stream.cursor import AbstractFileBasedCursor
@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 
 class AbstractConcurrentFileBasedCursor(Cursor, AbstractFileBasedCursor, ABC):
-
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         pass
 

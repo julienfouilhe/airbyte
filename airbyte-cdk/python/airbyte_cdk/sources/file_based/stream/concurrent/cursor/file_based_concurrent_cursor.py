@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from threading import RLock
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, MutableMapping, Optional, Tuple
 
-from airbyte_cdk.sources.streams.concurrent.partitions.partition import Partition
 from airbyte_cdk.models import AirbyteLogMessage, AirbyteMessage, Level, Type
 from airbyte_cdk.sources.connector_state_manager import ConnectorStateManager
 from airbyte_cdk.sources.file_based.config.file_based_stream_config import FileBasedStreamConfig
@@ -17,6 +16,7 @@ from airbyte_cdk.sources.file_based.stream.cursor import DefaultFileBasedCursor
 from airbyte_cdk.sources.file_based.types import StreamState
 from airbyte_cdk.sources.message.repository import MessageRepository
 from airbyte_cdk.sources.streams.concurrent.cursor import CursorField
+from airbyte_cdk.sources.streams.concurrent.partitions.partition import Partition
 from airbyte_cdk.sources.streams.concurrent.partitions.record import Record
 
 if TYPE_CHECKING:
