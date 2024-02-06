@@ -40,7 +40,6 @@ from airbyte_cdk.sources.file_based.stream.concurrent.cursor import (
 )
 from airbyte_cdk.sources.file_based.stream.cursor import AbstractFileBasedCursor
 from airbyte_cdk.sources.message.repository import InMemoryMessageRepository, MessageRepository
-from airbyte_cdk.sources.source import TState
 from airbyte_cdk.sources.streams import Stream
 from airbyte_cdk.sources.streams.concurrent.cursor import CursorField
 from airbyte_cdk.utils.analytics_message import create_analytics_message
@@ -171,7 +170,7 @@ class FileBasedSource(ConcurrentSourceAdapter, ABC):
                     stream = FileBasedStreamFacade.create_from_stream(self._make_default_stream(stream_config, cursor), self, self.logger, stream_state, cursor)
 
                 elif sync_mode == SyncMode.incremental and issubclass(self.cursor_cls, AbstractConcurrentFileBasedCursor) and hasattr(self, "_concurrency_level") and self._concurrency_level is not None:
-                    assert state_manager is not None, f"No ConnectorStateManager was created, but it is required for incremental syncs. This is unexpected. Please contact Support."
+                    assert state_manager is not None, "No ConnectorStateManager was created, but it is required for incremental syncs. This is unexpected. Please contact Support."
 
                     cursor = self.cursor_cls(
                         stream_config,

@@ -4,7 +4,7 @@
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, MutableMapping
+from typing import TYPE_CHECKING, Any, Iterable, List, MutableMapping
 
 from airbyte_cdk.sources.file_based.config.file_based_stream_config import FileBasedStreamConfig
 from airbyte_cdk.sources.file_based.remote_file import RemoteFile

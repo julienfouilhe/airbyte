@@ -580,8 +580,11 @@ single_csv_input_state_is_later_scenario_concurrent = (
     )
     .set_incremental_scenario_config(
         IncrementalScenarioConfig(
-            input_state=StateBuilder().with_stream_state("stream1", {"history": {"recent_file.csv": "2023-07-15T23:59:59.000000Z"},
-                                 "_ab_source_file_last_modified": "2023-07-15T23:59:59.000000Z_recent_file.csv"},
+            input_state=StateBuilder().with_stream_state(
+                "stream1", {
+                    "history": {"recent_file.csv": "2023-07-15T23:59:59.000000Z"},
+                    "_ab_source_file_last_modified": "2023-07-15T23:59:59.000000Z_recent_file.csv",
+                },
             ).build(),
         )
     )

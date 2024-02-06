@@ -187,7 +187,6 @@ def test_add_file(
         ) for uri, timestamp in pending_files
     ])
 
-
     uri, timestamp = file_to_add
     cursor.add_file(RemoteFile(uri=uri, last_modified=datetime.strptime(timestamp, DATE_TIME_FORMAT)))
     assert cursor._file_to_datetime_history == expected_history

@@ -5,7 +5,7 @@
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Iterable, MutableMapping, TypeVar
+from typing import TYPE_CHECKING, Any, List, Iterable, MutableMapping
 
 from airbyte_cdk.sources.file_based.remote_file import RemoteFile
 from airbyte_cdk.sources.file_based.stream.cursor import AbstractFileBasedCursor
