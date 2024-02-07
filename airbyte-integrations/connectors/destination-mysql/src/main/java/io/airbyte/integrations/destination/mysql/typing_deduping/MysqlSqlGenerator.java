@@ -20,6 +20,7 @@ import static org.jooq.impl.DSL.name;
 import static org.jooq.impl.DSL.quotedName;
 import static org.jooq.impl.DSL.rowNumber;
 import static org.jooq.impl.DSL.select;
+import static org.jooq.impl.DSL.sql;
 import static org.jooq.impl.DSL.table;
 import static org.jooq.impl.DSL.val;
 
@@ -56,6 +57,7 @@ import org.jooq.DSLContext;
 import org.jooq.DataType;
 import org.jooq.Field;
 import org.jooq.Name;
+import org.jooq.OrderField;
 import org.jooq.Param;
 import org.jooq.SQLDialect;
 import org.jooq.SortField;
@@ -213,36 +215,56 @@ public class MysqlSqlGenerator extends JdbcSqlGenerator {
 
     statements.add(super.createTable(stream, suffix, force));
 
+    // jooq tries to autogenerate the name if you just do createIndex(), but it creates a fully-qualified
+    // name, which isn't valid mysql syntax.
+    // mysql indexes only need to unique per-table, so we can just hardcode some names here.
+
     if (stream.destinationSyncMode() == DestinationSyncMode.APPEND_DEDUP) {
       // An index for our ROW_NUMBER() PARTITION BY pk ORDER BY cursor, extracted_at function
-      final List<Name> pkNames = stream.primaryKey().stream()
-          .map(pk -> quotedName(pk.name()))
-          .toList();
-      // TODO mysql create index needs `create index <table_name>`, not `create index <database>.<table>`
-      // so: tell jooq to do that, and also use the raw table name instead of the final table name to avoid collisions
-      // TODO solve ERROR: 1071 (42000): Specified key was too long; max key length is 3072 bytes
-      // so: for varchar columns, use e.g. `column_name(50)` instead of the entire column
-      statements.add(Sql.of(getDslContext().createIndex().on(
-              finalTableName,
-              Stream.of(
-                  pkNames.stream(),
-                  // if cursor is present, then a stream containing its name
-                  // but if no cursor, then empty stream
-                  stream.cursor().stream().map(cursor -> quotedName(cursor.name())),
-                  Stream.of(name(COLUMN_NAME_AB_EXTRACTED_AT))).flatMap(Function.identity()).toList())
-          .getSQL()));
+      final Stream<Field<?>> indexColumnStream = Stream.of(
+          stream.primaryKey().stream().map(pk -> getIndexColumnField(pk, stream.columns().get(pk))),
+          // if cursor is present, then a stream containing its name
+          // but if no cursor, then empty stream
+          stream.cursor().stream().map(cursor -> getIndexColumnField(cursor, stream.columns().get(cursor))),
+          Stream.of(field(name(COLUMN_NAME_AB_EXTRACTED_AT)))
+      ).flatMap(Function.identity());
+      // The compiler complains if we combine these two variables into a single Stream.of(...).flatMap().toList() call.
+      // So... keep them separate I guess?
+      final List<Field<?>> indexColumns = indexColumnStream.toList();
+      statements.add(Sql.of(getDslContext().createIndex("dedup_idx").on(
+          table(finalTableName),
+          indexColumns
+      ).getSQL()));
     }
-    statements.add(Sql.of(getDslContext().createIndex().on(
+    statements.add(Sql.of(getDslContext().createIndex("extracted_at_idx").on(
             finalTableName,
             name(COLUMN_NAME_AB_EXTRACTED_AT))
         .getSQL()));
 
-    statements.add(Sql.of(getDslContext().createIndex().on(
+    statements.add(Sql.of(getDslContext().createIndex("raw_id_idx").on(
             finalTableName,
             name(COLUMN_NAME_AB_RAW_ID))
         .getSQL()));
 
     return Sql.concat(statements);
+  }
+
+  private Field<?> getIndexColumnField(final ColumnId column, final AirbyteType airbyteType) {
+    // mysql restricts the total key length of an index, and our varchar/text columns alone would
+    // exceed that limit. So we restrict the index to only looking at the first 50 chars of
+    // varchar/text columns.
+    // jooq doesn't support this syntax, so we have to build it manually.
+    final DataType<?> dialectType = toDialectType(airbyteType);
+    final String typeName = dialectType.getTypeName();
+    if ("varchar".equalsIgnoreCase(typeName) || "text".equalsIgnoreCase(typeName)) {
+      // this produces something like `col_name`(50)
+      // so the overall create index statement is roughly
+      // CREATE INDEX foo ON `the_table` (`col_name`(50), ...)
+      final String colDecl = getDslContext().render(quotedName(column.name())) + "(" + 50 + ")";
+      return field(sql(colDecl));
+    } else {
+      return field(quotedName(column.name()));
+    }
   }
 
   @Override
